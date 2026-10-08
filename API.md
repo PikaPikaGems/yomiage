@@ -14,7 +14,7 @@ button.onclick = () => voice.speak("こんにちは。今日はいい天気で�
 // and show CREDIT somewhere on the page (required by the voice's terms)
 ```
 
-Status of this page: the API we agreed on; the code is being built (see README).
+Status of this page: implemented as described, except §9 (iPhone memory, not measured yet) and §10 (React, later).
 
 ---
 
@@ -31,8 +31,10 @@ npm install <yomiage release URL>
 }
 ```
 
-- Copies the voice model, the phonemizer and the ONNX Runtime files into your project (about 70 MB to download
-  the first time, to be confirmed). They are downloaded once from the yomiage release and cached on your computer.
+- Copies the voice model, the phonemizer, the ONNX Runtime files and the engine worker (`yomiage-worker.js`) into
+  your project. They are downloaded once (65 MB) from the yomiage release of the installed version and cached on
+  your computer (`~/.cache/yomiage`); when the folder is already up to date the command returns at once.
+- Nothing to configure in your bundler: the worker runs from that folder, not from your bundle.
 - Big files are split into parts of at most 20 MB, so any static host works (GitHub Pages, Cloudflare Pages).
 - Add `public/yomiage/` to `.gitignore`.
 - Vite, Next.js and Create React App serve `public/` at the site root, so the files end up at `/yomiage/`: the
@@ -95,7 +97,9 @@ voice.stop();                                                     // stop whatev
 - **iPhone:** Safari only plays sound that starts from a tap. yomiage unlocks audio on the first tap or key press
   anywhere on the page, so call `speak()` from a button and it just works. If audio is still blocked,
   `speak()` rejects with `audio-blocked`.
-- Cancel with an `AbortSignal` (`{ signal }`) like any other call.
+- Cancel with an `AbortSignal` (`{ signal }`): `speak()` then rejects with an `AbortError`, like other calls.
+- Call `load()` first; `speak()` before that rejects with `not-loaded`. After the memory was freed (idle, page
+  hidden, `unload()`), `speak()` reloads it from the device by itself.
 
 ### Settings
 

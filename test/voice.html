@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yomiage Test Page</title>
+<style>
+  :root { --bg: #fff; --fg: #1a1a1a; --muted: #666; --line: #ddd; --ok: #15803d; --bad: #b91c1c; --mark: #fde68a; --btn: #f4f4f5; --code: #f4f4f5; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #eee; --muted: #999; --line: #333; --ok: #4ade80; --bad: #f87171; --mark: #854d0e; --btn: #222; --code: #1c1c1f; } }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.5 -apple-system, system-ui, sans-serif; margin: 0 auto; padding: 16px; max-width: 720px; }
+  h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 20px 0 8px; }
+  p, small { color: var(--muted); }
+  button, select { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--btn); color: var(--fg); }
+  button:disabled { opacity: .5; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  textarea { width: 100%; min-height: 110px; font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+  label.slider { display: grid; grid-template-columns: 9em 1fr 3.5em; gap: 8px; align-items: center; }
+  progress { width: 100%; }
+  #reading { padding: 8px; border: 1px solid var(--line); border-radius: 8px; min-height: 2em; white-space: pre-wrap; }
+  mark { background: var(--mark); color: inherit; }
+  pre { background: var(--code); border-radius: 6px; padding: 8px; white-space: pre-wrap; font-size: 13px; max-height: 240px; overflow: auto; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  #credit { font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>yomiage test page</h1>
+<p>Status: <b id="status">…</b> <span id="size"></span></p>
+<progress id="progress" max="1" value="0" hidden></progress>
+<div class="row">
+  <button id="load">Load voice</button>
+  <button id="unload">Unload</button>
+  <button id="clear">Delete files from device</button>
+</div>
+
+<h2>Speak</h2>
+<textarea id="text">こんにちは。今日はいい天気ですね！私は毎朝、近くの公園を散歩しています。Let's do our best! 明日も晴れるといいな。</textarea>
+<div class="row">
+  <select id="preset"></select>
+  <select id="other"><option value="read">other languages: read</option><option value="skip">other languages: skip</option></select>
+  <label><input type="checkbox" id="queue"> queue</label>
+</div>
+<div id="sliders"></div>
+<div class="row">
+  <button id="speak">▶ Speak</button>
+  <button id="stop">■ Stop</button>
+  <button id="wav">Make WAV</button>
+  <a id="download" hidden>download .wav</a>
+</div>
+<div id="reading"></div>
+
+<h2>Checks</h2>
+<p>Runs automatic checks (needs the voice loaded; plays short sounds).</p>
+<div class="row"><button id="run">Run checks</button> <b id="summary"></b></div>
+<ol id="results"></ol>
+
+<h2>Log</h2>
+<pre id="log"></pre>
+<p id="credit"></p>
+
+<script type="module">
+import { createVoice, PRESETS, RANGES, CREDIT, toWav, VERSION } from "../dist/yomiage.js";
+
+const $ = (id) => document.getElementById(id);
+const log = (m) => { $("log").textContent += `${new Date().toLocaleTimeString()} ${m}\n`; $("log").scrollTop = 1e9; };
+window.onerror = (m) => log(`page error: ${m}`);
+window.onunhandledrejection = (e) => log(`unhandled: ${e.reason?.message ?? e.reason}`);
+$("credit").textContent = CREDIT;
+
+const voice = createVoice({ filesUrl: new URL("./files/", location.href).href });
+window.voice = voice;
+voice.on("status", (s) => { $("status").textContent = s; log(`status: ${s}`); });
+voice.on("progress", ({ loaded, total }) => { $("progress").hidden = false; $("progress").value = loaded / total; });
+voice.on("log", (m) => log(`worker: ${m}`));
+$("status").textContent = voice.status;
+log(`yomiage ${VERSION}; ${navigator.userAgent}`);
+voice.info().then(({ cached, downloadMB }) => { $("size").textContent = cached ? "(files on this device)" : `(download ${downloadMB} MB)`; });
+
+for (const name of Object.keys(PRESETS)) $("preset").append(new Option(name, name));
+const SLIDERS = { speed: 0.05, pitch: 0.5, formant: 0.5, breathReduction: 0.05, expressiveness: 0.05, rhythmVariation: 0.05 };
+const sliders = {};
+for (const [name, step] of Object.entries(SLIDERS)) {
+  const [min, max] = RANGES[name];
+  const l = document.createElement("label");
+  l.className = "slider";
+  l.innerHTML = `<span>${name}</span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
+  const input = l.querySelector("input"), out = l.querySelector("output");
+  input.oninput = () => { out.textContent = input.value; input.dataset.touched = "1"; };
+  sliders[name] = input;
+  $("sliders").append(l);
+}
+const DEFAULTS = { speed: 0.9, expressiveness: 0.5, rhythmVariation: 0.5 };
+function showPreset() {
+  const p = { ...DEFAULTS, ...PRESETS[$("preset").value] };
+  for (const [k, input] of Object.entries(sliders)) { input.value = p[k]; input.dataset.touched = ""; input.oninput(); input.dataset.touched = ""; }
+}
+$("preset").onchange = showPreset;
+showPreset();
+const settings = () => ({
+  preset: $("preset").value,
+  ...Object.fromEntries(Object.entries(sliders).map(([k, i]) => [k, Number(i.value)])),
+  otherLanguages: $("other").value,
+});
+
+$("load").onclick = async () => {
+  const t0 = performance.now();
+  try {
+    const { fromCache } = await voice.load();
+    log(`loaded in ${((performance.now() - t0) / 1000).toFixed(1)} s (${fromCache ? "from this device" : "downloaded"})`);
+    $("size").textContent = "(files on this device)";
+  } catch (e) { log(`load failed: ${e.code ?? e.name}: ${e.message}`); }
+  $("progress").hidden = true;
+};
+$("unload").onclick = () => voice.unload();
+$("clear").onclick = async () => { voice.dispose(); await voice.clearCache(); log("files deleted from this device"); voice.info().then(({ downloadMB }) => { $("size").textContent = `(download ${downloadMB} MB)`; }); };
+
+function showReading(text, start, end) {
+  $("reading").replaceChildren(text.slice(0, start), Object.assign(document.createElement("mark"), { textContent: text.slice(start, end) }), text.slice(end));
+}
+$("speak").onclick = async () => {
+  const text = $("text").value;
+  const t0 = performance.now();
+  let first = true;
+  try {
+    const r = await voice.speak(text, {
+      ...settings(),
+      queue: $("queue").checked,
+      onSentence: ({ start, end }) => {
+        if (first) { log(`first sound after ${((performance.now() - t0) / 1000).toFixed(2)} s`); first = false; }
+        showReading(text, start, end);
+      },
+    });
+    log(`speak: ${r}`);
+  } catch (e) { log(`speak failed: ${e.code ?? e.name}: ${e.message}`); }
+};
+$("stop").onclick = () => voice.stop();
+$("wav").onclick = async () => {
+  try {
+    const t0 = performance.now();
+    const audio = await voice.synthesize($("text").value, settings());
+    log(`synthesized ${(audio.samples.length / audio.sampleRate).toFixed(1)} s of audio in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+    const a = $("download");
+    if (a.href) URL.revokeObjectURL(a.href);
+    a.href = URL.createObjectURL(toWav(audio));
+    a.download = "yomiage.wav";
+    a.hidden = false;
+  } catch (e) { log(`synthesize failed: ${e.code ?? e.name}: ${e.message}`); }
+};
+
+// ---- automatic checks
+const results = [];
+window.__results = results;
+async function t(name, fn) {
+  const li = document.createElement("li");
+  li.textContent = `${name} ...`;
+  $("results").append(li);
+  try { await fn(); li.innerHTML = `<span class="ok">PASS</span> ${name}`; results.push({ name, ok: true }); }
+  catch (e) { li.innerHTML = `<span class="bad">FAIL</span> ${name}<pre>${e?.stack ?? e}</pre>`; results.push({ name, ok: false, error: String(e?.message ?? e) }); }
+}
+const assert = (c, m) => { if (!c) throw new Error(m); };
+const eq = (a, b, m) => assert(a === b, `${m}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+const rejects = async (p, check) => { try { await p; } catch (e) { check(e); return; } throw new Error("expected a rejection"); };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const seconds = (a) => a.samples.length / a.sampleRate;
+const rms = (a) => Math.sqrt(a.samples.reduce((s, x) => s + x * x, 0) / a.samples.length);
+
+$("run").onclick = async () => {
+  $("run").disabled = true;
+  $("results").replaceChildren();
+  results.length = 0;
+  const v = voice;
+
+  await t("bad settings are errors, not crashes", async () => {
+    assert((() => { try { createVoice({ preset: "nope" }); } catch (e) { return e instanceof TypeError; } })(), "unknown preset in createVoice");
+    await rejects(v.speak("あ", { preset: "nope" }), (e) => assert(e instanceof TypeError, "TypeError"));
+    await rejects(v.speak("あ", { otherLanguages: "browser" }), (e) => assert(e instanceof TypeError, "TypeError"));
+  });
+
+  await t("a fresh voice handle that never loaded: not-loaded", async () => {
+    const w = createVoice({ filesUrl: "./files/" });
+    await rejects(w.synthesize("こんにちは"), (e) => eq(e.code, "not-loaded", "code"));
+  });
+
+  await t("load() (shared engine)", async () => {
+    await v.load();
+    eq(v.status, "ready", "status");
+  });
+
+  let plain;
+  await t("synthesize: Japanese gives audible audio of a sensible length", async () => {
+    plain = await v.synthesize("こんにちは。今日はいい天気ですね。");
+    assert(plain.sampleRate >= 16000, `sample rate ${plain.sampleRate}`);
+    assert(seconds(plain) > 1 && seconds(plain) < 8, `${seconds(plain).toFixed(2)} s`);
+    assert(rms(plain) > 0.01, `rms ${rms(plain)}`);
+  });
+
+  await t("speed: 1.4 is shorter than 0.7", async () => {
+    const fast = await v.synthesize("今日はいい天気ですね。", { speed: 1.4, rhythmVariation: 0 });
+    const slow = await v.synthesize("今日はいい天気ですね。", { speed: 0.7, rhythmVariation: 0 });
+    assert(seconds(slow) > seconds(fast) * 1.5, `${seconds(slow).toFixed(2)} vs ${seconds(fast).toFixed(2)}`);
+  });
+
+  await t("presets: deep keeps about the same length (formant shift compensated)", async () => {
+    const a = await v.synthesize("今日はいい天気ですね。", { rhythmVariation: 0 });
+    const b = await v.synthesize("今日はいい天気ですね。", { preset: "deeper", rhythmVariation: 0 });
+    const r = seconds(b) / seconds(a);
+    assert(r > 0.8 && r < 1.25, `length ratio ${r.toFixed(2)}`);
+    assert(rms(b) > 0.01, "audible");
+  });
+
+  await t("otherLanguages: read gives audio, skip gives none", async () => {
+    const read = await v.synthesize("Let's do our best!", { otherLanguages: "read" });
+    const skip = await v.synthesize("Let's do our best!", { otherLanguages: "skip" });
+    assert(seconds(read) > 0.5, `read ${seconds(read)}`);
+    eq(skip.samples.length, 0, "skip");
+  });
+
+  await t("toWav: a valid WAV header", async () => {
+    const blob = toWav(plain);
+    const head = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+    eq(String.fromCharCode(...head.slice(0, 4)), "RIFF", "RIFF");
+    eq(String.fromCharCode(...head.slice(8, 12)), "WAVE", "WAVE");
+    eq(blob.size, 44 + plain.samples.length * 2, "size");
+  });
+
+  await t("speak: resolves done; onSentence in order with positions in the text", async () => {
+    const text = "はい。そうです。";
+    const seen = [];
+    eq(await v.speak(text, { speed: 1.5, onSentence: (s) => seen.push(s) }), "done", "result");
+    eq(JSON.stringify(seen.map((s) => text.slice(s.start, s.end))), JSON.stringify(["はい。", "そうです。"]), "sentences");
+  });
+
+  await t("a new speak() stops the current one (resolves stopped)", async () => {
+    const first = v.speak("これはとても長い文章です。最後まで読まれることはありません。");
+    await sleep(1500);
+    const second = v.speak("はい。", { speed: 1.5 });
+    eq(await first, "stopped", "first");
+    eq(await second, "done", "second");
+  });
+
+  await t("queue: true waits for the current speech", async () => {
+    const order = [];
+    const a = v.speak("いち。", { speed: 1.5 }).then((r) => { order.push("a"); return r; });
+    const b = v.speak("に。", { speed: 1.5, queue: true }).then((r) => { order.push("b"); return r; });
+    eq(await a, "done", "a"); eq(await b, "done", "b");
+    eq(order.join(), "a,b", "order");
+  });
+
+  await t("stop() ends speech, including queued speech", async () => {
+    const a = v.speak("これはとても長い文章です。最後まで読まれることはありません。");
+    const b = v.speak("これも読まれません。", { queue: true });
+    await sleep(1200);
+    v.stop();
+    eq(await a, "stopped", "a"); eq(await b, "stopped", "b");
+  });
+
+  await t("AbortSignal: speak rejects with AbortError", async () => {
+    const c = new AbortController();
+    const p = v.speak("これはとても長い文章です。最後まで読まれることはありません。", { signal: c.signal });
+    await sleep(800);
+    c.abort();
+    await rejects(p, (e) => eq(e.name, "AbortError", "name"));
+  });
+
+  await t("unload(), then speak again: reloads from the device", async () => {
+    v.unload();
+    eq(v.status, "stopped", "status");
+    eq(await v.speak("はい。", { speed: 1.5 }), "done", "result");
+    eq(v.status, "ready", "status after");
+  });
+
+  const failed = results.filter((r) => !r.ok).length;
+  $("summary").textContent = failed ? `${failed} of ${results.length} failed` : `All ${results.length} passed`;
+  $("summary").className = failed ? "bad" : "ok";
+  window.__done = true;
+  $("run").disabled = false;
+};
+</script>
+</body>
+</html>
