@@ -16,6 +16,40 @@ button.onclick = () => voice.speak("こんにちは。");
 
 Every app using yomiage must show the Tsukuyomi-chan credit (`CREDIT`); see [NOTICE.md](NOTICE.md).
 
+## Voice settings
+
+Pass any of these to `createVoice()` (defaults for that voice) or to `speak()` / `synthesize()` (one call).
+Values outside the range are clamped, so a slider can never break playback.
+
+```js
+const voice = createVoice({ preset: "deep", speed: 0.9 });
+voice.speak("こんにちは。", { pitch: -10 });   // this call only
+```
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| `preset` | `original` `soft` `low` `deep` `deeper` | `soft` | A starting point for `pitch`, `formant` and `breathReduction` (table below). Settings you also pass override it |
+| `speed` | 0.5 – 1.5 | 0.8 | How fast she talks. 1 is the model's natural pace, 0.5 half as fast. Changes the tempo only, not the pitch |
+| `pitch` | −14 – +6 | from preset | How high or low the voice is, in semitones (12 = one octave). −2 is slightly lower, −12 an octave down. On its own, a big change sounds like the same small speaker sped up or slowed down; combine it with `formant` for a different-sounding voice |
+| `formant` | −8 – +4 | from preset | The "size" of the voice, in semitones: the resonances of the throat and mouth, independent of pitch. Negative sounds like a bigger, deeper body (more mature or masculine); positive sounds smaller (younger). Large values start to sound artificial |
+| `breathReduction` | 0 – 1 | from preset | Softens the hissy, airy high frequencies. Shifted voices pick up some breath noise, so the presets that shift use 0.6. Higher is cleaner but makes s / sh sounds duller |
+| `expressiveness` | 0 – 1 | 0.5 | How much the tone and intonation vary. Low is flat and steady, a bit robotic; high is livelier but can wobble. (piper's *noise scale*) |
+| `rhythmVariation` | 0 – 1 | 0.5 | How much the length of sounds and pauses varies. Low is metronome-steady; high is more natural but uneven. (piper's *noise W*) |
+
+| Preset | `pitch` | `formant` | `breathReduction` | Sounds like |
+|---|---|---|---|---|
+| `original` | 0 | 0 | 0 | Tsukuyomi-chan's own voice, unfiltered |
+| `soft` | −2 | −0.5 | 0.6 | A little calmer and lower; the default |
+| `low` | −6 | −1.5 | 0.6 | A lower, mature voice |
+| `deep` | −9 | −4 | 0.6 | A deep voice |
+| `deeper` | −11 | −5.5 | 0.6 | The deepest preset |
+
+The presets are filters on Tsukuyomi-chan's voice, picked by ear; they are not other characters. `PRESETS`, `RANGES`
+and `DEFAULTS` are exported, e.g. to build your own controls. Pitch and formant are changed with PSOLA (our own
+code); formant shifting makes the model speak a little faster first, so `speed` stays what you set.
+
+Per call there are also `queue`, `onSentence`, `otherLanguages` and `signal`; see [API.md](API.md#4-speak).
+
 ## How it fits together
 
 ```
