@@ -34,7 +34,6 @@ console.warn = (first, ...rest) => { if (!QUIET.some((q) => String(first).starts
 
 async function load(_msg, ctx) {
   let config = null, session = null, glue = null;
-  const t0 = performance.now();
   await ctx.loadFiles({
     onFile: async (file, chunks) => {
       const bytes = await collect(chunks, file.size);
@@ -47,16 +46,19 @@ async function load(_msg, ctx) {
           config = JSON.parse(new TextDecoder().decode(bytes));
           break;
         case "model.onnx":
+          ctx.step("start-runtime-and-voice-model", { file: file.name });
           session = await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"], graphOptimizationLevel: "extended" });
           ort.env.wasm.wasmBinary = undefined; // ONNX Runtime is running; free its copy of the binary
           break;
         case "phonemizer.js": {
+          ctx.step("import-phonemizer", { file: file.name });
           const url = URL.createObjectURL(new Blob([bytes], { type: "text/javascript" }));
           try { glue = await import(/* @vite-ignore */ url); } finally { URL.revokeObjectURL(url); }
           break;
         }
         case "phonemizer.wasm":
           if (!glue) throw codedError("engine-failed", "phonemizer.wasm came before phonemizer.js in the manifest");
+          ctx.step("start-phonemizer", { file: file.name });
           await glue.default({ module_or_path: bytes });
           break;
         default:
@@ -65,7 +67,6 @@ async function load(_msg, ctx) {
     },
   });
   if (!config || !session || !glue) throw codedError("engine-failed", "the voice files are incomplete (run yomiage copy-files again)");
-  ctx.log(`files ready in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
 
   // piper-plus wants a model URL and fetches the config next to it, then creates the ONNX session itself. Both were
   // already done above (from the stored parts), so hand it the results instead. It also fetches Chinese dictionaries
@@ -78,6 +79,7 @@ async function load(_msg, ctx) {
     if (/\/pinyin_(single|phrases)\.json$/.test(u)) return Promise.resolve(new Response(null, { status: 404 }));
     return realFetch(url, ...rest);
   };
+  ctx.step("start-piper");
   patchSpeakerEmbeddingDim({ _session: session }, ort, ctx.log);
   try {
     piper = await PiperPlus.initialize({
@@ -92,7 +94,6 @@ async function load(_msg, ctx) {
   if (!piper._phonemizer?._phonemizers?.has("ja")) {
     throw codedError("engine-failed", "the Japanese phonemizer did not start (see the console)");
   }
-  ctx.log(`ready in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
   return { version: VERSION };
 }
 

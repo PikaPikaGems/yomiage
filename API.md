@@ -69,9 +69,15 @@ Options (all optional):
 const { cached, downloadMB } = await voice.info();
 if (!cached && !confirm(`Download the voice (${downloadMB} MB)?`)) return;
 
-const off = voice.on("progress", ({ loaded, total }) => showBar(loaded / total));
+const off = voice.on("progress", (p) => {
+  bar.value = p.fraction;                                 // 0 → 1 over the whole load; never goes backwards
+  label.textContent =
+    p.stage === "downloading" ? `Downloading voice… ${Math.round(p.loaded / 1e6)} / ${Math.round(p.total / 1e6)} MB`
+    : p.stage === "preparing" ? "Preparing voice…"
+    : "Ready";
+});
 try {
-  await voice.load();                   // resolves { fromCache }
+  await voice.load();                   // resolves { fromCache, ms, timings }
 } catch (err) {
   if (err.code === "unavailable") hideSpeakButtons();   // it crashed this device before: see §7
   else showError(err.message);
@@ -79,6 +85,29 @@ try {
   off();
 }
 ```
+
+Nothing is downloaded or loaded before `load()`, so loading lazily is up to the app: e.g. call `load()` in the
+first tap on a speak button (`if (voice.status === "not-loaded") await voice.load();`). Audio still plays from that
+tap afterwards.
+
+### Progress
+
+One `progress` event covers the whole load, so a single bar works for a first visit and for later ones:
+
+| Field | What it is |
+|---|---|
+| `stage` | `"downloading"` (first visit, while parts are still arriving), `"preparing"` (unpacking and starting the engine; every load), `"ready"` (once, at the end). Stable: use it for labels |
+| `fraction` | 0 → 1 for the whole load. Downloading counts for most of it on a first visit; preparing for all of it on later visits |
+| `loaded`, `total` | Bytes for the current stage: downloaded / to download, or unpacked / all |
+| `step` | What is happening right now, for debugging (may change between versions): `read` (a part from the device), `download`, `verify`, `store`, `unpack`, `file-done`, then the engine's own: `start-runtime-and-voice-model`, `import-phonemizer`, `start-phonemizer`, `start-piper`, and `ready` |
+| `file`, `part`, `parts`, `fileIndex`, `files` | Which file and part the step is working on |
+| `downloaded`, `toDownload`, `unpacked`, `toUnpack` | The raw byte counts behind `fraction` |
+| `ms` | Milliseconds since loading started |
+
+The bar pauses during a single long step (starting the voice model is the longest); `step` says which one.
+
+For debugging, `load()` also resolves `timings`: every step with its file, part, start (`at`) and duration (`ms`),
+and `voice.on("log", fn)` gets a line per step (`"1.23 s  download model.onnx part 1/2"`).
 
 Status: `voice.status` and `voice.on("status", fn)`, with the same values as wakachi: `not-loaded`, `downloading`,
 `loading`, `ready`, `stopped` (memory freed; reloads by itself), `unavailable`, `error`.

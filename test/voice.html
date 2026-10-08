@@ -27,7 +27,7 @@
 <body>
 <h1>yomiage test page</h1>
 <p>Status: <b id="status">…</b> <span id="size"></span></p>
-<progress id="progress" max="1" value="0" hidden></progress>
+<div id="loading" hidden><progress id="progress" max="1" value="0"></progress><div><b id="stage"></b> <small id="step"></small></div></div>
 <div class="row">
   <button id="load">Load voice</button>
   <button id="unload">Unload</button>
@@ -71,7 +71,14 @@ $("credit").textContent = CREDIT;
 const voice = createVoice({ filesUrl: new URL("./files/", location.href).href });
 window.voice = voice;
 voice.on("status", (s) => { $("status").textContent = s; log(`status: ${s}`); });
-voice.on("progress", ({ loaded, total }) => { $("progress").hidden = false; $("progress").value = loaded / total; });
+const MB = (n) => (n / 1e6).toFixed(1);
+voice.on("progress", (p) => {
+  $("loading").hidden = false;
+  $("progress").value = p.fraction;
+  $("stage").textContent = p.stage === "downloading" ? `Downloading voice… ${MB(p.loaded)} / ${MB(p.total)} MB`
+    : p.stage === "preparing" ? `Preparing voice… ${Math.round(p.fraction * 100)}%` : "Ready";
+  $("step").textContent = `${p.step}${p.file ? ` · ${p.file}` : ""}${p.parts > 1 ? ` part ${p.part}/${p.parts}` : ""} · ${(p.ms / 1000).toFixed(2)} s`;
+});
 voice.on("log", (m) => log(`worker: ${m}`));
 $("status").textContent = voice.status;
 log(`yomiage ${VERSION}; ${navigator.userAgent}`);
@@ -106,11 +113,16 @@ const settings = () => ({
 $("load").onclick = async () => {
   const t0 = performance.now();
   try {
-    const { fromCache } = await voice.load();
+    const { fromCache, timings } = await voice.load();
     log(`loaded in ${((performance.now() - t0) / 1000).toFixed(1)} s (${fromCache ? "from this device" : "downloaded"})`);
+    if (timings) {
+      // slowest steps first, for spotting what to speed up
+      const rows = [...timings].sort((a, b) => b.ms - a.ms).slice(0, 8);
+      log(`slowest steps:\n${rows.map((t) => `  ${String(t.ms).padStart(6)} ms  ${t.step}${t.file ? ` ${t.file}` : ""}${t.part ? ` part ${t.part}` : ""}`).join("\n")}`);
+    }
     $("size").textContent = "(files on this device)";
   } catch (e) { log(`load failed: ${e.code ?? e.name}: ${e.message}`); }
-  $("progress").hidden = true;
+  setTimeout(() => { $("loading").hidden = true; }, 1500);
 };
 $("unload").onclick = () => voice.unload();
 $("clear").onclick = async () => { voice.dispose(); await voice.clearCache(); log("files deleted from this device"); voice.info().then(({ downloadMB }) => { $("size").textContent = `(download ${downloadMB} MB)`; }); };
