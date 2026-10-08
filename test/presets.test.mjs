@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { PRESETS, resolveSettings } from "../src/presets.js";
 
-test("defaults: original preset, speed 0.9", () => {
+test("defaults: soft preset, speed 0.8", () => {
   assert.deepEqual(resolveSettings(), {
-    preset: "original", speed: 0.9, expressiveness: 0.5, rhythmVariation: 0.5, pitch: 0, formant: 0, breathReduction: 0,
+    preset: "soft", speed: 0.8, expressiveness: 0.5, rhythmVariation: 0.5, pitch: -2, formant: -0.5, breathReduction: 0.6,
   });
 });
 
@@ -35,7 +35,7 @@ test("out-of-range values are clamped; non-numbers are ignored", () => {
   assert.equal(s.pitch, -14);
   assert.equal(s.breathReduction, 0);
   assert.equal(s.expressiveness, 0.5);
-  assert.equal(s.formant, 0);
+  assert.equal(s.formant, PRESETS.soft.formant); // NaN is ignored: the default preset's value stays
 });
 
 test("unknown preset names are an error", () => {

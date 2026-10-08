@@ -19,7 +19,9 @@ export const RANGES = Object.freeze({
   rhythmVariation: [0, 1],
 });
 
-const BASE = { preset: "original", speed: 0.9, expressiveness: 0.5, rhythmVariation: 0.5 };
+/** Settings when nothing else is given: the soft filter, a little slower than the model's own pace. */
+export const DEFAULTS = Object.freeze({ preset: "soft", speed: 0.8, expressiveness: 0.5, rhythmVariation: 0.5 });
+const BASE = DEFAULTS;
 const NAMES = ["preset", ...Object.keys(RANGES)];
 
 /**

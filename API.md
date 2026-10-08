@@ -134,8 +134,8 @@ voice.stop();                                                     // stop whatev
 
 | Setting | Range | Default | What it does |
 |---|---|---|---|
-| `preset` | see below | `"original"` | Starting values for `pitch`, `formant` and `breathReduction` |
-| `speed` | 0.5 – 1.5 | `0.9` | How fast she talks (tempo only, not pitch) |
+| `preset` | see below | `"soft"` | Starting values for `pitch`, `formant` and `breathReduction` |
+| `speed` | 0.5 – 1.5 | `0.8` | How fast she talks (tempo only, not pitch) |
 | `pitch` | −14 – +6 | from preset | Semitones; negative = lower voice |
 | `formant` | −8 – +4 | from preset | "Voice size" in semitones; negative = bigger, deeper |
 | `breathReduction` | 0 – 1 | from preset | Softens hiss and the airy high frequencies |
@@ -152,7 +152,8 @@ Values outside the range are clamped, never an error, so a slider can't break pl
 | `"deep"` | −9 | −4 | 0.6 |
 | `"deeper"` | −11 | −5.5 | 0.6 |
 
-`PRESETS` exports this table, e.g. to build your own controls. The presets are filters on Tsukuyomi-chan's voice,
+`DEFAULTS` exports the defaults (`{ preset: "soft", speed: 0.8, expressiveness: 0.5, rhythmVariation: 0.5 }`) and
+`PRESETS` this table, e.g. to build your own controls. The presets are filters on Tsukuyomi-chan's voice,
 picked by ear; pitch and formants are changed with PSOLA (our own code).
 
 ### Highlighting the sentence being read

@@ -4,12 +4,12 @@
 // (`yomiage-worker.js`, put there by `yomiage copy-files`), shared by every voice on the page. kakera does the worker
 // management, downloading in parts and the phone protections.
 import { createPool, KakeraError } from "kakera";
-import { PRESETS, RANGES, resolveSettings } from "./presets.js";
+import { DEFAULTS, PRESETS, RANGES, resolveSettings } from "./presets.js";
 import { splitForSpeech, isOtherLanguage } from "./sentences.js";
 import { Playback, audioRunning, unlockAudio, unlockOnGestures } from "./playback.js";
 import { toWav } from "./wav.js";
 
-export { PRESETS, RANGES, toWav };
+export { DEFAULTS, PRESETS, RANGES, toWav };
 
 /** Set by the build (scripts/build.mjs); the worker carries the same value. */
 export const VERSION = typeof __YOMIAGE_VERSION__ === "string" ? __YOMIAGE_VERSION__ : "dev";

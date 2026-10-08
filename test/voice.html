@@ -60,7 +60,7 @@
 <p id="credit"></p>
 
 <script type="module">
-import { createVoice, PRESETS, RANGES, CREDIT, toWav, VERSION } from "../dist/yomiage.js";
+import { createVoice, DEFAULTS, PRESETS, RANGES, CREDIT, toWav, VERSION } from "../dist/yomiage.js";
 
 const $ = (id) => document.getElementById(id);
 const log = (m) => { $("log").textContent += `${new Date().toLocaleTimeString()} ${m}\n`; $("log").scrollTop = 1e9; };
@@ -97,11 +97,11 @@ for (const [name, step] of Object.entries(SLIDERS)) {
   sliders[name] = input;
   $("sliders").append(l);
 }
-const DEFAULTS = { speed: 0.9, expressiveness: 0.5, rhythmVariation: 0.5 };
 function showPreset() {
   const p = { ...DEFAULTS, ...PRESETS[$("preset").value] };
   for (const [k, input] of Object.entries(sliders)) { input.value = p[k]; input.dataset.touched = ""; input.oninput(); input.dataset.touched = ""; }
 }
+$("preset").value = DEFAULTS.preset;
 $("preset").onchange = showPreset;
 showPreset();
 const settings = () => ({
