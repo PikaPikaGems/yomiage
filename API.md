@@ -14,7 +14,7 @@ button.onclick = () => voice.speak("こんにちは。今日はいい天気で�
 // and show CREDIT somewhere on the page (required by the voice's terms)
 ```
 
-Status of this page: the API we agreed on. Items marked *(proposal)* are new and still need a yes.
+Status of this page: the API we agreed on; the code is being built (see README).
 
 ---
 
@@ -122,7 +122,7 @@ Values outside the range are clamped, never an error, so a slider can't break pl
 `PRESETS` exports this table, e.g. to build your own controls. The presets are filters on Tsukuyomi-chan's voice,
 picked by ear; pitch and formants are changed with PSOLA (our own code).
 
-### Highlighting the sentence being read *(proposal)*
+### Highlighting the sentence being read
 
 ```js
 voice.speak(text, { onSentence: ({ text, start, end }) => highlight(start, end) });
@@ -130,10 +130,15 @@ voice.speak(text, { onSentence: ({ text, start, end }) => highlight(start, end) 
 
 Called as each sentence starts playing; `start`/`end` are positions in the text. Useful for study apps.
 
-### Non-Japanese text *(proposal)*
+### Sentences in other languages
 
-The voice model also speaks English (and a few other languages) in its own way. Sentences without any Japanese are
-read in English mode by default; `{ foreign: "skip" }` skips them instead.
+Only sentences with **no Japanese at all** are affected (e.g. "Let's do our best!" between two Japanese sentences);
+mixed sentences like 「今日はmeetingがあります。」 are always read normally.
+
+| `otherLanguages` | What happens to such a sentence |
+|---|---|
+| `"read"` (default) | Tsukuyomi-chan reads it in the model's English mode (with a Japanese-ish accent) |
+| `"skip"` | Left out silently |
 
 ## 5. Audio without playing it
 
