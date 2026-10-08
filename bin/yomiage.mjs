@@ -18,6 +18,7 @@ const pkgDir = new URL("../", import.meta.url);
 const pkg = JSON.parse(fs.readFileSync(new URL("package.json", pkgDir)));
 const RELEASE = `https://github.com/PikaPikaGems/yomiage/releases/download/v${pkg.version}/`;
 const WORKER = "yomiage-worker.js";
+const LICENSES = "THIRD-PARTY-LICENSES.md"; // goes wherever the worker goes
 const USAGE = "usage: yomiage copy-files <folder> [--from <url or folder>]";
 
 const die = (msg) => { console.error(`yomiage: ${msg}`); process.exit(1); };
@@ -59,7 +60,9 @@ async function main() {
   const sameFiles = old?.version === manifest.version
     && parts.every((p) => fs.statSync(path.join(dest, p.file), { throwIfNoEntry: false })?.size === p.size);
   const workerPath = path.join(dest, WORKER);
-  const sameWorker = fs.existsSync(workerPath) && fs.readFileSync(workerPath).equals(worker);
+  const licenses = fs.readFileSync(new URL(`dist/${LICENSES}`, pkgDir));
+  const sameFile = (p, bytes) => fs.existsSync(p) && fs.readFileSync(p).equals(bytes);
+  const sameWorker = sameFile(workerPath, worker) && sameFile(path.join(dest, LICENSES), licenses);
   if (sameFiles && sameWorker) { console.log(`yomiage: ${path.relative(process.cwd(), dest) || "."} is up to date`); return; }
 
   fs.mkdirSync(dest, { recursive: true });
@@ -85,6 +88,7 @@ async function main() {
     fs.writeFileSync(oldManifestPath, JSON.stringify(manifest, null, 2)); // last: marks the folder complete
   }
   if (!sameWorker) fs.writeFileSync(workerPath, worker);
+  fs.writeFileSync(path.join(dest, LICENSES), licenses);
   const where = path.relative(process.cwd(), dest) || ".";
   console.log(sameFiles ? `yomiage: updated ${WORKER} in ${where}` : `yomiage: copied the voice files (${mb(manifest.downloadSize)} MB) to ${where}`);
 }

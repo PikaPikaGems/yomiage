@@ -92,19 +92,26 @@ tap afterwards.
 
 ### Progress
 
-One `progress` event covers the whole load, so a single bar works for a first visit and for later ones:
+The files stay on the device until the browser deletes them: Safari does that after about 7 days of browsing
+without visiting the site (except for web apps added to the Home Screen), other browsers when storage runs low. The
+next `load()` then downloads again, and `info()` reports `cached: false` beforehand.
+
+
+One `progress` event covers the whole load, so a single bar works whether or not the files have to be downloaded:
 
 | Field | What it is |
 |---|---|
-| `stage` | `"downloading"` (first visit, while parts are still arriving), `"preparing"` (unpacking and starting the engine; every load), `"ready"` (once, at the end). Stable: use it for labels |
-| `fraction` | 0 → 1 for the whole load. Downloading counts for most of it on a first visit; preparing for all of it on later visits |
+| `stage` | `"downloading"` (while parts are still arriving: the first time, and whenever the browser has deleted the files since), `"preparing"` (unpacking and starting the engine; every load), `"ready"` (once, at the end). Stable: use it for labels |
+| `fraction` | 0 → 1 for the whole load. When downloading, the download counts for most of it; when the files are on the device, preparing counts for all of it |
 | `loaded`, `total` | Bytes for the current stage: downloaded / to download, or unpacked / all |
 | `step` | What is happening right now, for debugging (may change between versions): `read` (a part from the device), `download`, `verify`, `store`, `unpack`, `file-done`, then the engine's own: `start-runtime-and-voice-model`, `import-phonemizer`, `start-phonemizer`, `start-piper`, and `ready` |
 | `file`, `part`, `parts`, `fileIndex`, `files` | Which file and part the step is working on |
 | `downloaded`, `toDownload`, `unpacked`, `toUnpack` | The raw byte counts behind `fraction` |
 | `ms` | Milliseconds since loading started |
 
-The bar pauses during a single long step (starting the voice model is the longest); `step` says which one.
+When the files are on the device, the bar moves by time: each load remembers how long each step took on this device, so
+the next one keeps the bar moving through long steps (starting the voice model is the longest). Only the very first
+load from the device, and loads that download, can pause on a long step; `step` says which one.
 
 For debugging, `load()` also resolves `timings`: every step with its file, part, start (`at`) and duration (`ms`),
 and `voice.on("log", fn)` gets a line per step (`"1.23 s  download model.onnx part 1/2"`).
@@ -225,7 +232,12 @@ Some uses are prohibited by the voice's terms; see [NOTICE.md](NOTICE.md).
 To be measured. Expect roughly 150–250 MB while loaded (voice model, phonemizer, runtime). With wakachi on the same
 page (~150 MB), load one, then the other, not both at the same moment.
 
-## 10. React *(later)*
+## 10. TypeScript
+
+Types are included (`types/index.d.ts`): `Voice`, `VoiceOptions`, `SpeakOptions`, `LoadProgress`, `VoiceError` and
+the rest. Nothing to install.
+
+## 11. React *(later)*
 
 ```jsx
 const { speak, stop, status } = useVoice({ preset: "soft" });

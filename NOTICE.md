@@ -20,3 +20,6 @@ their own licences and terms. **Apps that use yomiage must follow them, in parti
 |---|---|---|
 | [piper-plus](https://github.com/ayutaz/piper-plus) (`piper-plus`, `@piper-plus/g2p`) | speech synthesis, Japanese phonemizer (includes an OpenJTalk-based dictionary) | MIT (see the piper-plus repository for the licences of the bundled dictionary data) |
 | [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) | runs the voice model | MIT |
+
+The full licence texts of the bundled software are in `THIRD-PARTY-LICENSES.md`, which `yomiage copy-files` puts next
+to the engine worker (`yomiage-worker.js`) so they ship with your site.

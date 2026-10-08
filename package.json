@@ -5,7 +5,11 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./dist/yomiage.js"
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./dist/yomiage.js",
+      "default": "./dist/yomiage.js"
+    }
   },
   "bin": {
     "yomiage": "./bin/yomiage.mjs"
@@ -13,6 +17,7 @@
   "files": [
     "dist/",
     "bin/",
+    "types/",
     "API.md",
     "NOTICE.md"
   ],
@@ -20,13 +25,23 @@
     "build": "node scripts/build.mjs",
     "files": "node scripts/make-files.mjs",
     "test": "node --test test/*.test.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "test:types": "tsc -p test/types"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
     "kakera": "file:../kakera",
     "onnxruntime-web": "1.30.0",
-    "piper-plus": "0.7.0"
+    "piper-plus": "0.7.0",
+    "typescript": "^5.9.0"
   },
-  "keywords": ["japanese", "tts", "text-to-speech", "piper", "tsukuyomi", "browser"]
+  "keywords": [
+    "japanese",
+    "tts",
+    "text-to-speech",
+    "piper",
+    "tsukuyomi",
+    "browser"
+  ],
+  "types": "./types/index.d.ts"
 }
