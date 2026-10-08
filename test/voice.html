@@ -16,6 +16,8 @@
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
   textarea { width: 100%; min-height: 110px; font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
   label.slider { display: grid; grid-template-columns: 9em 1fr 3.5em; gap: 8px; align-items: center; }
+  .setting { margin: 10px 0; }
+  .hint { display: block; color: var(--muted); font-size: 13px; line-height: 1.4; margin-top: 2px; }
   progress { width: 100%; }
   #reading { padding: 8px; border: 1px solid var(--line); border-radius: 8px; min-height: 2em; white-space: pre-wrap; }
   mark { background: var(--mark); color: inherit; }
@@ -36,11 +38,16 @@
 
 <h2>Speak</h2>
 <textarea id="text">こんにちは。今日はいい天気ですね！私は毎朝、近くの公園を散歩しています。Let's do our best! 明日も晴れるといいな。</textarea>
-<div class="row">
-  <select id="preset"></select>
-  <select id="other"><option value="read">other languages: read</option><option value="skip">other languages: skip</option></select>
-  <label><input type="checkbox" id="queue"> queue</label>
-</div>
+<div class="setting"><label>preset <select id="preset"></select></label>
+  <small class="hint">A starting point for pitch, formant and breath reduction: filters on Tsukuyomi-chan's voice, picked by ear.
+    original = her own voice; soft (the default) = a little calmer and lower; low, deep, deeper = progressively deeper.
+    Choosing one moves the sliders below; moving a slider afterwards overrides the preset.</small></div>
+<div class="setting"><label>other languages <select id="other"><option value="read">read</option><option value="skip">skip</option></select></label>
+  <small class="hint">Sentences with no Japanese at all (e.g. "Let's do our best!"). read = the model reads them in its English
+    mode, with a Japanese accent; skip = left out. Mixed sentences like 「今日はmeetingです」 are always read.</small></div>
+<div class="setting"><label><input type="checkbox" id="queue"> queue</label>
+  <small class="hint">Off: pressing Speak again stops what is playing and starts the new text. On: the new text waits until the
+    current speech has finished.</small></div>
 <div id="sliders"></div>
 <div class="row">
   <button id="speak">▶ Speak</button>
@@ -85,17 +92,26 @@ log(`yomiage ${VERSION}; ${navigator.userAgent}`);
 voice.info().then(({ cached, downloadMB }) => { $("size").textContent = cached ? "(files on this device)" : `(download ${downloadMB} MB)`; });
 
 for (const name of Object.keys(PRESETS)) $("preset").append(new Option(name, name));
-const SLIDERS = { speed: 0.05, pitch: 0.5, formant: 0.5, breathReduction: 0.05, expressiveness: 0.05, rhythmVariation: 0.05 };
+// [step, description]; the same explanations as API.md § Settings
+const SLIDERS = {
+  speed: [0.05, "How fast she talks. 1 is the model's natural pace, 0.5 half as fast, 1.5 half again as fast. Changes the tempo only, not the pitch."],
+  pitch: [0.5, "How high or low the voice is, in semitones (12 = one octave): −2 is slightly lower, −12 an octave down. On its own a big change sounds like the same small speaker sped up or slowed down; combine it with formant for a different-sounding voice."],
+  formant: [0.5, "The \"size\" of the voice: the resonances of the throat and mouth, independent of pitch. Negative sounds like a bigger, deeper body (more mature); positive sounds smaller (younger). Large values start to sound artificial."],
+  breathReduction: [0.05, "Softens the hissy, airy high frequencies. Shifted voices pick up some breath noise, so the presets that shift use 0.6. Higher is cleaner, but s and sh sounds get duller."],
+  expressiveness: [0.05, "How much the tone and intonation vary. Low is flat and steady, a bit robotic; high is livelier but can wobble. (piper's noise scale)"],
+  rhythmVariation: [0.05, "How much the length of sounds and pauses varies. Low is metronome-steady; high is more natural but uneven. (piper's noise W)"],
+};
 const sliders = {};
-for (const [name, step] of Object.entries(SLIDERS)) {
+for (const [name, [step, hint]] of Object.entries(SLIDERS)) {
   const [min, max] = RANGES[name];
-  const l = document.createElement("label");
-  l.className = "slider";
-  l.innerHTML = `<span>${name}</span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
-  const input = l.querySelector("input"), out = l.querySelector("output");
+  const box = document.createElement("div");
+  box.className = "setting";
+  box.innerHTML = `<label class="slider"><span>${name}</span><input type="range" min="${min}" max="${max}" step="${step}"><output></output></label><small class="hint"></small>`;
+  box.querySelector(".hint").textContent = `${hint} Range ${min} to ${max}.`;
+  const input = box.querySelector("input"), out = box.querySelector("output");
   input.oninput = () => { out.textContent = input.value; input.dataset.touched = "1"; };
   sliders[name] = input;
-  $("sliders").append(l);
+  $("sliders").append(box);
 }
 function showPreset() {
   const p = { ...DEFAULTS, ...PRESETS[$("preset").value] };
