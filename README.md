@@ -1,5 +1,8 @@
 # yomiage
 
+> [!WARNING]
+> This project is experimental. Use it at your own risk.
+
 Japanese text-to-speech in the browser with the つくよみちゃん (Tsukuyomi-chan) voice, plus voice presets.
 Runs on the device (no server) and works on iPhone Safari. *yomiage* (読み上げ) means "reading aloud".
 
