@@ -1,0 +1,24 @@
+{
+  "name": "yomiage",
+  "version": "0.0.0",
+  "description": "Japanese text-to-speech in the browser (Tsukuyomi-chan voice via piper-plus), with voice presets. Works on iPhone Safari.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "yomiage": "./bin/yomiage.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "onnxruntime-web": "^1.30.0",
+    "piper-plus": "^0.7.0"
+  },
+  "devDependencies": {
+    "kakera": "file:../kakera"
+  },
+  "keywords": ["japanese", "tts", "text-to-speech", "piper", "tsukuyomi", "browser"]
+}

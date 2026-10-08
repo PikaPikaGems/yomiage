@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# files written by `yomiage copy-files` for the test pages
+test/files/
+.DS_Store
+*.log
