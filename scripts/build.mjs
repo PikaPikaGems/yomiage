@@ -9,7 +9,8 @@ import { build } from "esbuild";
 
 const root = new URL("../", import.meta.url);
 const pkg = JSON.parse(fs.readFileSync(new URL("package.json", root)));
-const define = { __YOMIAGE_VERSION__: JSON.stringify(pkg.version) };
+const kakera = JSON.parse(fs.readFileSync(new URL("../kakera/package.json", root)));
+const define = { __YOMIAGE_VERSION__: JSON.stringify(pkg.version), __KAKERA_VERSION__: JSON.stringify(kakera.version) };
 const nm = (p) => new URL(`node_modules/${p}`, root);
 const piperVersion = JSON.parse(fs.readFileSync(nm("piper-plus/package.json"))).version;
 const ortVersion = JSON.parse(fs.readFileSync(nm("onnxruntime-web/package.json"))).version;

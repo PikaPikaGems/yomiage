@@ -7,6 +7,8 @@ voice.on("status", (s) => { const ok: "ready" | string = s; void ok; });
 off();
 
 async function demo() {
+  const report: string = await voice.debugReport();
+  console.log(report);
   const { cached, downloadMB } = await voice.info();
   if (!cached) console.log(downloadMB);
   const { fromCache, timings } = await voice.load();
