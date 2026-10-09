@@ -237,8 +237,79 @@ page (~150 MB), load one, then the other, not both at the same moment.
 Types are included (`types/index.d.ts`): `Voice`, `VoiceOptions`, `SpeakOptions`, `LoadProgress`, `VoiceError` and
 the rest. Nothing to install.
 
-## 11. React *(later)*
+## 11. React *(planned, not built yet)*
 
-```jsx
-const { speak, stop, status } = useVoice({ preset: "soft" });
+`yomiage/react`, with React as an optional peer dependency (plain-JS apps never need it). Two hooks:
+`useYomiage()` where the speaking happens, `useYomiageEngine()` to manage the download and memory.
+
+**Nothing downloads or loads by itself.** The voice is a 65 MB download and a few hundred MB of memory, so only
+`load()` starts it, from something the user chose (a "Download voice" button). Every component sees the same voice:
+load it in one place, speak from any other.
+
+```tsx
+import { useYomiage } from "yomiage/react";
+
+function ReadAloud({ text }) {
+  const y = useYomiage({ preset: "soft" });            // the same options as createVoice()
+
+  switch (y.status) {
+    case "not-loaded":  return <button onClick={y.load}>{y.cached ? "Turn on voice" : `Download voice (${y.downloadMB} MB)`}</button>;
+    case "loading":     return <progress value={y.progress.fraction} />;   // downloading or preparing
+    case "unavailable": return null;                                       // loading crashed this device before (§7)
+    case "error":       return <p>{y.error.message} <button onClick={y.retry}>Retry</button></p>;
+    case "ready":       return <button onClick={() => (y.speaking ? y.stop() : y.speak(text))}>
+                          {y.speaking ? "Stop" : "Read aloud"}
+                        </button>;
+  }
+}
 ```
+
+| `status` | Fields |
+|---|---|
+| `"not-loaded"` | `load`, `cached`, `downloadMB` |
+| `"loading"` | `progress` (`stage` is `"downloading"` or `"preparing"`) |
+| `"ready"` | `speak(text, settings?)`, `stop()`, `speaking`, `sentence` (`{ text, start, end }` being read, or `null`) |
+| `"unavailable"` | `reason` |
+| `"error"` | `error`, `retry` |
+
+The fields exist only in their status, so TypeScript catches `speak()` before the voice is ready. After the memory
+was freed (a minute unused, the page hidden, `unload()`), `status` is `"loading"` for a moment on the next
+`speak()`: it reloads from the device, no download. Unmounting stops the sound this component started; the voice
+stays loaded for the others.
+
+`useYomiageEngine(options?)` is for a settings page: what is on the device and in memory, with buttons to
+change it. wakachi's `useWakachiEngine()` returns the same shape, so one settings row works for both.
+
+```tsx
+const e = useYomiageEngine();
+e.status        // "not-loaded" | "downloading" | "loading" | "ready" | "stopped" | "unavailable" | "error"
+e.cached        // the files are on this device
+e.downloadMB    // 65
+e.progress      // { stage, fraction, ... } while loading, otherwise null
+e.error         // the last error, or null
+e.load()        // download if needed, then load into memory
+e.unload()      // free the memory, keep the files
+e.clearCache()  // delete the files from this device
+e.debugReport() // text to paste into a bug report (planned, see below)
+```
+
+```tsx
+function OfflineData() {
+  return <><Row name="Voice" e={useYomiageEngine()} /><Row name="Furigana dictionary" e={useWakachiEngine()} /></>;
+}
+function Row({ name, e }) {
+  return <div>
+    {name}: {e.cached ? "on this device" : `${e.downloadMB} MB to download`}, {e.status}
+    {e.status === "not-loaded" && <button onClick={e.load}>{e.cached ? "Load" : "Download"}</button>}
+    {e.status === "ready" && <button onClick={e.unload}>Free memory</button>}
+    {e.cached && <button onClick={e.clearCache}>Delete from device</button>}
+  </div>;
+}
+```
+
+### Debug report *(planned)*
+
+`voice.debugReport()` (and `e.debugReport()` in React) will return a block of text for bug reports: versions,
+browser and device, the files address and manifest version, status and the last error (code, message, cause), which
+parts are on the device, storage used, the crash guard's record, and the log of the last load with timings. It never
+includes the text being spoken. Shared with wakachi through kakera.
