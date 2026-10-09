@@ -72,6 +72,9 @@ On an iPhone on the same Wi-Fi: serve with `--bind 0.0.0.0` and open `http://<th
 (On plain http to a LAN address the browser has no `crypto.subtle`, so checksums are skipped; everything else is the
 same as on a real https site.)
 
+Demo site: `npm run publish:demo` builds `demo/` (the test page with the files) and pushes it to the `gh-pages`
+branch, served at https://pikapikagems.github.io/yomiage/ (`node scripts/publish-demo.mjs --build` only builds it).
+
 A release will carry `npm pack`'s tarball (what apps install) and the contents of `files/` (what `copy-files`
 downloads, from `https://github.com/PikaPikaGems/yomiage/releases/download/v<version>/`).
 
