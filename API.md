@@ -229,8 +229,18 @@ Some uses are prohibited by the voice's terms; see [NOTICE.md](NOTICE.md).
 
 ## 9. Memory on iPhone Safari
 
-To be measured. Expect roughly 150–250 MB while loaded (voice model, phonemizer, runtime). With wakachi on the same
-page (~150 MB), load one, then the other, not both at the same moment.
+About **450 MB** while loaded (measured in a desktop browser, 2026-10-09). It is a fixed cost: speaking long texts
+doesn't add to it. Where it goes (measured in Node with the same engine):
+
+| Part | Memory |
+|---|---|
+| ONNX Runtime with the voice model (40 MB file) | 211 MB, its peak while starting the model; WebAssembly memory never shrinks |
+| Phonemizer | 83 MB (its 59 MB built-in dictionary plus working memory) |
+| The phonemizer's dictionary, a second time inside the compiled program | ~59 MB (browsers keep it) |
+| Compiled program code, JavaScript, the page | the rest |
+
+With wakachi on the same page (~120 MB), about 570 MB in all. Load one, then the other, not both at the same moment.
+Ideas to lower it are in PENDING.md.
 
 ## 10. TypeScript
 
