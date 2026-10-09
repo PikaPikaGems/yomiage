@@ -16,5 +16,15 @@
 - [x] Tried ONNX Runtime `graphOptimizationLevel: "disabled"` (2026-10-09): same speed and 122 instead of 211 MB of
       wasm memory in Node, but ~60 MB *more* for the whole tab in WebKit (673–686 vs 618 MB speaking). Not used.
 - [ ] More memory, if needed: a smaller (quantized) voice model, which changes the sound.
+- [ ] **Parked (2026-10-09): memory still grows while speaking in some runs on Safari's engine.** About 1 run in 3,
+      speaking a long text for 3 minutes in WebKit grows ~570 → ~740 MB; it stays while idle and is freed only when
+      the worker ends, so it is in the worker. With pitch shifting and breath reduction off it grew less (+20, +52,
+      +22 MB in 3 runs), so they make it worse (about 8 audio-sized temporary arrays per sentence) but are not the only
+      cause. Next steps: (1) do those steps in place instead of copying; (2) restart the worker quietly between
+      speeches after it has generated a lot (ending the worker frees everything; ~1 s from the device); (3) repeat
+      `npm run test:webkit` several times, then add it to CI (macOS runner, for `footprint`).
+      Tool: `npm run test:webkit` (test/webkit.mjs) runs the test page's checks in WebKit, the load peak limit and a
+      5-minute speaking check. Needs `npx playwright-core install webkit` once, and test/files made with
+      `node bin/yomiage.mjs copy-files test/files --from files`.
 - [ ] Test on a real iPhone (sound unlock, loading bar, memory).
 - [ ] CI: Node tests and the browser test page.

@@ -27,13 +27,15 @@
     "test": "node --test test/*.test.mjs",
     "prepack": "npm run build",
     "test:types": "tsc -p test/types",
-    "publish:demo": "node scripts/publish-demo.mjs"
+    "publish:demo": "node scripts/publish-demo.mjs",
+    "test:webkit": "node test/webkit.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
     "kakera": "file:../kakera",
     "onnxruntime-web": "1.30.0",
     "piper-plus": "0.7.0",
+    "playwright-core": "1.55.0",
     "typescript": "^5.9.0"
   },
   "keywords": [
