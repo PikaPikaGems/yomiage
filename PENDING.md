@@ -5,7 +5,7 @@
       so `yomiage-worker.js` can't. Fix (in kakera): start the worker from a small same-origin blob that imports the
       remote script (the remote host then also needs CORS on that file). GitHub release downloads send no CORS headers,
       so a page can't load from a release directly; GitHub Pages or a CDN would work.
-- [ ] Demo page on GitHub Pages (test/voice.html with the voice files).
+- [x] Demo site: https://pikapikagems.github.io/yomiage/ (`npm run publish:demo` updates it).
 - [ ] First GitHub release (v0.1.0) with `files/`: `copy-files` downloads from it by default.
 - [ ] `yomiage/react`: `useVoice()`; React as an optional peer dependency.
 - [ ] Test on a real iPhone (sound unlock, loading bar, memory).
