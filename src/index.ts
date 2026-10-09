@@ -3,6 +3,8 @@
 // The engine (piper-plus, ONNX Runtime, the voice filters) runs in a worker started from the files folder
 // (`yomiage-worker.js`, put there by `yomiage copy-files`), shared by every voice on the page. kakera does the worker
 // management, downloading in parts and the phone protections.
+import type { Audio, Voice, VoiceOptions, VoiceSettings, OtherLanguages, VoiceErrorCode } from "./types.js";
+export type * from "./types.js";
 import { createPool, KakeraError } from "kakera";
 import { DEFAULTS, PRESETS, RANGES, resolveSettings } from "./presets.js";
 import { splitForSpeech, isOtherLanguage } from "./sentences.js";
@@ -19,7 +21,13 @@ export const CREDIT = "音声合成には、フリー素材キャラクター「
   + "■つくよみちゃんコーパス（CV.夢前黎）https://tyc.rei-yumesaki.net/material/corpus/";
 
 /** Errors from yomiage. `code`: see API.md §7. */
-export class VoiceError extends KakeraError {}
+// Keep Error's static members without exposing private kakera types in the package declarations.
+const VoiceErrorBase: Pick<typeof Error, keyof typeof Error> &
+  (new (code: string, message: string, options?: ErrorOptions) => Error & { readonly code: string }) = KakeraError;
+export class VoiceError extends VoiceErrorBase {
+  declare readonly code: VoiceErrorCode;
+  constructor(code: VoiceErrorCode, message: string, options?: { cause?: unknown }) { super(code, message, options); }
+}
 
 const pool = createPool({ prefix: "yomiage", ErrorClass: VoiceError });
 const SETTINGS = new Set(["preset", ...Object.keys(RANGES)]);
@@ -29,14 +37,15 @@ const STOPPED = Symbol("stopped");
 let versionChecked = false;
 
 // Everything speaking on the page: a new speak() (without queue) stops all of them; so does stop() on any voice.
-const speeches = new Set();
+interface Speech { stop(): void; done?: Promise<"done" | "stopped">; }
+const speeches = new Set<Speech>();
 const stopAll = () => { for (const s of [...speeches]) s.stop(); };
 
 const abortError = () => new DOMException("The operation was aborted.", "AbortError");
-const definedOnly = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
-const pick = (o, keys) => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => keys.has(k)));
+const definedOnly = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
+const pick = (o: VoiceSettings, keys: Set<string>): VoiceSettings => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => keys.has(k)));
 
-function checkOtherLanguages(v) {
+function checkOtherLanguages(v: OtherLanguages) {
   if (!OTHER_LANGUAGES.includes(v)) throw new TypeError(`otherLanguages must be "read" or "skip", not ${JSON.stringify(v)}`);
   return v;
 }
@@ -45,7 +54,7 @@ function checkOtherLanguages(v) {
  * A voice: a light handle with default settings. The engine is shared by all voices and loaded by load().
  * @param {object} [options]  see API.md §2
  */
-export function createVoice(options = {}) {
+export function createVoice(options: VoiceOptions = {}): Voice {
   const {
     filesUrl = "/yomiage/", idleTimeout, stopWhenHidden = true, crashGuard, timeouts = {}, persistStorage,
     otherLanguages = "read",
@@ -69,18 +78,17 @@ export function createVoice(options = {}) {
   unlockOnGestures();
 
   /** Each piece of `text` as audio, in order; stops early when `signal` aborts. */
-  async function* pieces(text, settings, otherLangs, signal) {
+  async function* pieces(text: string, settings: VoiceSettings, otherLangs: OtherLanguages, signal?: AbortSignal) {
     for (const piece of splitForSpeech(String(text ?? ""))) {
       const other = isOtherLanguage(piece.text);
       if (other && otherLangs === "skip") continue;
-      const audio = await handle.call("synth", { ...settings, text: piece.text, language: other ? "en" : "ja" }, { stall: speakStall, signal });
+      const audio = await handle.call<Audio>("synth", { ...settings, text: piece.text, language: other ? "en" : "ja" }, { stall: speakStall, signal });
       yield { piece, audio };
     }
   }
 
-  const callSettings = (o) => {
-    const settings = resolveSettings(defaults, pick(o, SETTINGS));
-    delete settings.preset;
+  const callSettings = (o: VoiceSettings) => {
+    const { preset: _preset, ...settings } = resolveSettings(defaults, pick(o, SETTINGS));
     return settings;
   };
 
@@ -88,7 +96,8 @@ export function createVoice(options = {}) {
     get status() { return handle.status; },
 
     /** Subscribe to "status", "progress" ({ loaded, total } bytes) or "log". Returns an unsubscribe function. */
-    on: (event, fn) => handle.on(event, fn),
+    // Kakera also types the internal manifest step with file:null; that step is not emitted to listeners.
+    on: handle.on.bind(handle) as Voice["on"],
 
     /** { cached, downloadBytes, downloadMB } without downloading anything. */
     info: () => handle.info(),
@@ -126,18 +135,18 @@ export function createVoice(options = {}) {
       if (!o.queue) stopAll();
 
       const ctrl = new AbortController();
-      const speech = { stop: () => ctrl.abort(STOPPED) };
+      const speech: Speech = { stop: () => ctrl.abort(STOPPED) };
       const onUserAbort = () => ctrl.abort(abortError());
       o.signal?.addEventListener("abort", onUserAbort, { once: true });
       const check = () => { if (ctrl.signal.aborted) throw ctrl.signal.reason; };
-      const until = (p) => new Promise((resolve, reject) => {
+      const until = <T>(p: Promise<T>) => new Promise<T>((resolve, reject) => {
         if (ctrl.signal.aborted) { reject(ctrl.signal.reason); return; }
         const onAbort = () => reject(ctrl.signal.reason);
         ctrl.signal.addEventListener("abort", onAbort, { once: true });
         p.then(resolve, reject).finally(() => ctrl.signal.removeEventListener("abort", onAbort));
       });
 
-      speech.done = (async () => {
+      speech.done = (async (): Promise<"done" | "stopped"> => {
         let playback = null;
         try {
           await until(Promise.allSettled(waitFor));

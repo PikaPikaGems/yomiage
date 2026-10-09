@@ -5,6 +5,7 @@
 //   dist/THIRD-PARTY-LICENSES.md  licences of what the worker and the voice files contain (ONNX Runtime, piper-plus
 //                           and the Open JTalk / MeCab / NAIST-jdic code and data in its phonemizer); copied with them
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import { build } from "esbuild";
 
 const root = new URL("../", import.meta.url);
@@ -17,8 +18,15 @@ const ortVersion = JSON.parse(fs.readFileSync(nm("onnxruntime-web/package.json")
 const banner = { js: `/*! yomiage ${pkg.version} engine worker (MIT). Bundles ONNX Runtime Web ${ortVersion} (MIT, Microsoft) and piper-plus ${piperVersion} (MIT); see THIRD-PARTY-LICENSES.md next to this file. */` };
 const common = { bundle: true, format: "esm", platform: "browser", target: "es2022", define, logLevel: "warning", absWorkingDir: root.pathname };
 
-await build({ ...common, entryPoints: ["src/index.js"], outfile: "dist/yomiage.js" });
-await build({ ...common, entryPoints: ["src/worker.js"], outfile: "dist/yomiage-worker.js", minify: true, legalComments: "eof", banner });
+execFileSync(process.execPath, [new URL("node_modules/typescript/bin/tsc", root).pathname, "-p", "tsconfig.json"], { cwd: root, stdio: "inherit" });
+
+fs.mkdirSync(new URL("dist/types/", root), { recursive: true });
+for (const name of ["index", "types", "presets", "wav"]) {
+  fs.copyFileSync(new URL(`.cache/ts/${name}.d.ts`, root), new URL(`dist/types/${name}.d.ts`, root));
+}
+
+await build({ ...common, entryPoints: ["src/index.ts"], outfile: "dist/yomiage.js" });
+await build({ ...common, entryPoints: ["src/worker.ts"], outfile: "dist/yomiage-worker.js", minify: true, legalComments: "eof", banner });
 
 fs.writeFileSync(new URL("dist/THIRD-PARTY-LICENSES.md", root), [
   `# Third-party licences\n\nyomiage-worker.js (yomiage ${pkg.version}, MIT) and the voice files next to it contain the software below.`,

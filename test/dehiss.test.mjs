@@ -1,7 +1,7 @@
 // The breath filter cuts high frequencies and leaves the voice's main range alone.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { reduceBreath } from "../src/dehiss.js";
+import { reduceBreath } from "../.cache/ts/dehiss.js";
 
 const SR = 22050;
 const tone = (hz, seconds = 0.5) => Float32Array.from({ length: Math.round(SR * seconds) }, (_, i) => Math.sin((2 * Math.PI * hz * i) / SR));

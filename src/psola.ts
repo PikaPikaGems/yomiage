@@ -7,7 +7,7 @@
 // "echo". Formants are moved separately by resampling first; PSOLA then sets the final pitch and keeps the
 // original duration.
 //
-//   shiftVoicePsola(samples, sampleRate, pitchSt, formantSt, VOICE_SHIFT) -> Float32Array
+//   shiftVoicePsola(samples: Float32Array, sampleRate: number, pitchSt: number, formantSt, VOICE_SHIFT) -> Float32Array
 //
 // VOICE_SHIFT is what yomiage uses. It was picked by ear (jp-tts-playground's voice-lab.html) over Rubber Band and
 // earlier PSOLA versions, and tuned on the noisiest presets: aligning cycles raised the harmonics-to-noise ratio by
@@ -15,13 +15,16 @@
 // to -94 dB.
 // `stretch: false` means the caller must have the voice speak faster by 2^(formantSt/12) first (see shiftVoicePsola).
 
+interface PitchTrack { hop: number; f0: Float32Array; }
+interface PitchMarks { pos: Int32Array; period: Float32Array; voiced: Uint8Array; }
+
 export const VOICE_SHIFT = { improved: true, align: true, gate: true, stretch: false };
 
 /**
  * Pitch track with the YIN algorithm (de Cheveigné & Kawahara, 2002).
  * @returns {{ hop: number, f0: Float32Array }}  f0 per hop in Hz, 0 = unvoiced
  */
-export function detectPitch(x, sampleRate, { fmin = 70, fmax = 600, hopSec = 0.005, threshold = 0.15 } = {}) {
+export function detectPitch(x: Float32Array, sampleRate: number, { fmin = 70, fmax = 600, hopSec = 0.005, threshold = 0.15 } = {}) {
   const hop = Math.max(1, Math.round(sampleRate * hopSec));
   const maxLag = Math.ceil(sampleRate / fmin);
   const minLag = Math.floor(sampleRate / fmax);
@@ -89,7 +92,7 @@ export function detectPitch(x, sampleRate, { fmin = 70, fmax = 600, hopSec = 0.0
  * Smooth the voiced/unvoiced decision: fill short unvoiced gaps inside voiced speech (interpolating the pitch) and
  * drop very short voiced islands. Flicker between the two modes causes clicks.
  */
-export function smoothVoicing({ hop, f0 }, { maxGap = 3, minRun = 4 } = {}) {
+export function smoothVoicing({ hop, f0 }: PitchTrack, { maxGap = 3, minRun = 4 } = {}) {
   const out = f0.slice();
   for (let i = 0; i < out.length;) {
     if (out[i]) { i++; continue; }
@@ -111,11 +114,11 @@ export function smoothVoicing({ hop, f0 }, { maxGap = 3, minRun = 4 } = {}) {
 }
 
 /** Zero-phase low-pass (a 2nd-order filter run forwards and backwards), so peaks stay where they were. */
-function lowpassZeroPhase(x, sampleRate, cutoff) {
+function lowpassZeroPhase(x: Float32Array, sampleRate: number, cutoff: number) {
   const w = (2 * Math.PI * cutoff) / sampleRate, alpha = Math.sin(w) / Math.SQRT2, cw = Math.cos(w);
   const a0 = 1 + alpha;
   const b0 = (1 - cw) / 2 / a0, b1 = (1 - cw) / a0, b2 = b0, a1 = (-2 * cw) / a0, a2 = (1 - alpha) / a0;
-  const pass = (src, reverse) => {
+  const pass = (src: Float32Array, reverse: boolean) => {
     const y = new Float32Array(src.length);
     let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
     for (let n = 0; n < src.length; n++) {
@@ -135,19 +138,19 @@ function lowpassZeroPhase(x, sampleRate, cutoff) {
  * from one cycle to the next. Mark jitter is heard as roughness and noise.
  * @returns {{ pos: Int32Array, period: Float32Array, voiced: Uint8Array }}
  */
-export function pitchMarks(x, sampleRate, { hop, f0 }, { stable = false, align = false } = {}) {
+export function pitchMarks(x: Float32Array, sampleRate: number, { hop, f0 }: PitchTrack, { stable = false, align = false } = {}) {
   const unvoicedPeriod = Math.round(sampleRate * 0.005);
-  const f0At = (t) => f0[Math.min(f0.length - 1, Math.max(0, Math.round(t / hop)))];
+  const f0At = (t: number) => f0[Math.min(f0.length - 1, Math.max(0, Math.round(t / hop)))];
   const ref = stable || align ? lowpassZeroPhase(x, sampleRate, 900) : x;
   const reach = stable || align ? 1 / 4 : 1 / 3; // search window around the expected position, as a fraction of a period
-  const peakIn = (a, b) => {
+  const peakIn = (a: number, b: number) => {
     let best = Math.max(0, a), v = -Infinity;
     for (let i = Math.max(0, a); i < Math.min(ref.length, b); i++) if (ref[i] > v) { v = ref[i]; best = i; }
     return best;
   };
   // `align`: the position near `t` whose surrounding cycle looks most like the previous one (normalised
   // cross-correlation). Keeps consecutive slices in the same place within their cycles, so they add up cleanly.
-  const alignedNear = (prev, t, P) => {
+  const alignedNear = (prev: number, t: number, P: number) => {
     const half = Math.round(P / 2), span = Math.round(P * reach);
     let best = Math.round(t), bestScore = -Infinity;
     for (let c = Math.round(t) - span; c <= Math.round(t) + span; c++) {
@@ -169,7 +172,7 @@ export function pitchMarks(x, sampleRate, { hop, f0 }, { stable = false, align =
       const P = sampleRate / f;
       // first cycle of a voiced run: its highest peak; later cycles: the peak (or best-aligned cycle) near where the
       // next cycle is expected
-      const m = !prevVoiced ? peakIn(Math.round(t), Math.round(t + P))
+      const m: number = !prevVoiced ? peakIn(Math.round(t), Math.round(t + P))
         : align ? alignedNear(pos[pos.length - 1], t, P)
         : peakIn(Math.round(t - P * reach), Math.round(t + P * reach));
       pos.push(m); period.push(P); voiced.push(1);
@@ -188,7 +191,7 @@ export function pitchMarks(x, sampleRate, { hop, f0 }, { stable = false, align =
  * High-quality resampling by `ratio` (playback-rate semantics): ratio < 1 lowers pitch and formants and makes the
  * audio longer by 1/ratio. Windowed sinc, with anti-aliasing when ratio > 1.
  */
-export function resample(x, ratio, zeroCrossings = 12) {
+export function resample(x: Float32Array, ratio: number, zeroCrossings = 12) {
   if (Math.abs(ratio - 1) < 1e-9) return x.slice();
   const n = Math.floor(x.length / ratio);
   const y = new Float32Array(n);
@@ -217,7 +220,7 @@ export function resample(x, ratio, zeroCrossings = 12) {
  * `lowerWindow`: when lowering the pitch, slices are laid further apart than they are long, leaving dips between
  * cycles (heard as roughness). Values above 1 widen the slices (up to this many periods each side) to fill them.
  */
-export function psola(x, sampleRate, { pitchFactor = 1, timeFactor = 1, marks, jitterUnvoiced = false, lowerWindow = 1 } = {}) {
+export function psola(x: Float32Array, sampleRate: number, { pitchFactor = 1, timeFactor = 1, marks, jitterUnvoiced = false, lowerWindow = 1 }: {pitchFactor?: number; timeFactor?: number; marks?: PitchMarks; jitterUnvoiced?: boolean; lowerWindow?: number} = {}) {
   const m = marks ?? pitchMarks(x, sampleRate, detectPitch(x, sampleRate));
   const outLen = Math.round(x.length * timeFactor);
   const y = new Float32Array(outLen);
@@ -245,13 +248,13 @@ export function psola(x, sampleRate, { pitchFactor = 1, timeFactor = 1, marks, j
   return y;
 }
 
-const rmsOf = (a) => { let e = 0; for (const v of a) e += v * v; return Math.sqrt(e / Math.max(1, a.length)); };
+const rmsOf = (a: Float32Array) => { let e = 0; for (const v of a) e += v * v; return Math.sqrt(e / Math.max(1, a.length)); };
 
 /**
  * Noise gate: fades out stretches that are much quieter than the speech (pauses between words), where leftover
  * artifacts are most audible. Smooth gain changes (fast open, slower close) so it doesn't click.
  */
-export function noiseGate(x, sampleRate, { thresholdDb = -38, floorDb = -30 } = {}) {
+export function noiseGate(x: Float32Array, sampleRate: number, { thresholdDb = -38, floorDb = -30 } = {}) {
   const frame = Math.round(sampleRate * 0.01);
   const frames = Math.ceil(x.length / frame);
   const level = new Float32Array(frames);
@@ -280,7 +283,7 @@ export function noiseGate(x, sampleRate, { thresholdDb = -38, floorDb = -30 } = 
  * Average harmonics-to-noise ratio (dB) over voiced frames: how much of the voice is clean repeating cycles versus
  * noise. Higher = cleaner. For comparing versions of the same sentence, not an absolute quality score.
  */
-export function harmonicsToNoise(x, sampleRate) {
+export function harmonicsToNoise(x: Float32Array, sampleRate: number) {
   const { hop, f0 } = detectPitch(x, sampleRate);
   const half = Math.round(sampleRate * 0.02);
   let sum = 0, n = 0;
@@ -319,7 +322,7 @@ export function harmonicsToNoise(x, sampleRate) {
  *   the output comes out at normal length.
  * @returns {Float32Array} same loudness as the input
  */
-export function shiftVoicePsola(samples, sampleRate, pitchSt, formantSt = 0,
+export function shiftVoicePsola(samples: Float32Array, sampleRate: number, pitchSt: number, formantSt = 0,
   { improved = false, align = false, lowerWindow = 1, gate = false, stretch = true } = {}) {
   if (!pitchSt && !formantSt) return samples;
   const r = 2 ** (formantSt / 12);
@@ -335,7 +338,7 @@ export function shiftVoicePsola(samples, sampleRate, pitchSt, formantSt = 0,
     jitterUnvoiced: improved,
     lowerWindow,
   });
-  let out = new Float32Array(outLen);
+  let out: Float32Array = new Float32Array(outLen);
   out.set(y.subarray(0, outLen));
   // Overlap changes with the pitch factor, which changes loudness; match the input's level.
   const g = rmsOf(samples) / (rmsOf(out) || 1);

@@ -28,6 +28,8 @@ jobs:
           path: yomiage/.cache
           key: voice-model-${{ hashFiles('yomiage/scripts/make-files.mjs') }}
       - run: npm ci
+        working-directory: kakera
+      - run: npm ci
       - run: npm run build
       - run: npm run files
       - run: npm test

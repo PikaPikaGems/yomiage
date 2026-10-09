@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { splitSentences, splitForSpeech, isOtherLanguage } from "../src/sentences.js";
+import { splitSentences, splitForSpeech, isOtherLanguage } from "../.cache/ts/sentences.js";
 
 const texts = (pieces) => pieces.map((p) => p.text);
 const positionsMatch = (text, pieces) => pieces.every((p) => text.slice(p.start, p.end) === p.text);

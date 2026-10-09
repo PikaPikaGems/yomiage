@@ -5,7 +5,7 @@
 // slope 1, low-pass Q in dB), so the result matches jp-tts-playground's OfflineAudioContext version.
 
 /** One biquad section over the whole signal (direct form I). */
-function biquad(x, [b0, b1, b2, a0, a1, a2]) {
+function biquad(x: Float32Array, [b0, b1, b2, a0, a1, a2]: number[]) {
   const y = new Float32Array(x.length);
   const nb0 = b0 / a0, nb1 = b1 / a0, nb2 = b2 / a0, na1 = a1 / a0, na2 = a2 / a0;
   let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
@@ -17,7 +17,7 @@ function biquad(x, [b0, b1, b2, a0, a1, a2]) {
   return y;
 }
 
-function highShelf(sampleRate, frequency, gainDb) {
+function highShelf(sampleRate: number, frequency: number, gainDb: number) {
   const A = 10 ** (gainDb / 40), w0 = (2 * Math.PI * frequency) / sampleRate;
   const cw = Math.cos(w0), alpha = (Math.sin(w0) / 2) * Math.SQRT2; // slope S = 1
   const k = 2 * Math.sqrt(A) * alpha;
@@ -27,7 +27,7 @@ function highShelf(sampleRate, frequency, gainDb) {
   ];
 }
 
-function lowPass(sampleRate, frequency, qDb) {
+function lowPass(sampleRate: number, frequency: number, qDb: number) {
   const w0 = (2 * Math.PI * frequency) / sampleRate, cw = Math.cos(w0);
   const alpha = Math.sin(w0) / (2 * 10 ** (qDb / 20)); // Web Audio's low-pass Q is in dB
   return [(1 - cw) / 2, 1 - cw, (1 - cw) / 2, 1 + alpha, -2 * cw, 1 - alpha];
@@ -38,7 +38,7 @@ function lowPass(sampleRate, frequency, qDb) {
  * @param {number} amount  0..1 (0 = unchanged)
  * @returns {Float32Array}
  */
-export function reduceBreath(samples, sampleRate, amount) {
+export function reduceBreath(samples: Float32Array, sampleRate: number, amount: number) {
   if (!amount) return samples;
   const shelved = biquad(samples, highShelf(sampleRate, 3000, -15 * amount));
   return biquad(shelved, lowPass(sampleRate, Math.min(sampleRate / 2 - 100, 10000 - 4000 * amount), 0.5));

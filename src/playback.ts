@@ -1,11 +1,11 @@
 // Playing audio on the page: one AudioContext for the page, unlocked on the first tap (iPhone Safari only plays sound
 // that starts from a user gesture), and a Playback per speech that schedules pieces back to back.
 
-let ctx = null;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let ctx: AudioContext | null = null;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function audioContext() {
-  ctx ??= new (globalThis.AudioContext ?? globalThis.webkitAudioContext)();
+  ctx ??= new (globalThis.AudioContext ?? (globalThis as typeof globalThis & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
   return ctx;
 }
 
@@ -41,11 +41,16 @@ export async function audioRunning(waitMs = 1500) {
   try { c = audioContext(); } catch { return false; }
   if (c.state === "running") return true;
   await Promise.race([c.resume().catch(() => {}), sleep(waitMs)]);
-  return c.state === "running";
+  return (c.state as AudioContextState) === "running";
 }
 
 /** The pieces of one speech, scheduled back to back so there are no gaps. */
 export class Playback {
+  ctx: AudioContext;
+  next: number;
+  sources: Set<AudioBufferSourceNode>;
+  timers: Set<ReturnType<typeof setTimeout>>;
+  last: Promise<void>;
   constructor() {
     this.ctx = audioContext();
     this.next = 0;
@@ -55,10 +60,10 @@ export class Playback {
   }
 
   /** Schedule a piece after the previous one; `onStart` runs when it starts playing. */
-  add(samples, sampleRate, onStart) {
+  add(samples: Float32Array, sampleRate: number, onStart?: () => void) {
     const c = this.ctx;
     const buf = c.createBuffer(1, samples.length, sampleRate);
-    buf.copyToChannel(samples, 0);
+    buf.copyToChannel(samples as Float32Array<ArrayBuffer>, 0);
     const src = c.createBufferSource();
     src.buffer = buf;
     src.connect(c.destination);
