@@ -12,8 +12,7 @@
       phonemizer-data.bin and is streamed into its memory (kakera/wasm): peak while loading 931 → 693 MB, speaking
       ~680 → ~570 MB. Finished audio players are disconnected: Safari kept them, +2.3 MB per sentence until unload.
       The WebKit measuring scripts (Playwright WebKit + macOS `footprint`) are worth keeping for CI.
-- [ ] Release v0.2.0: the worker on main needs the new files (phonemizer-data.bin), so `copy-files` from main only
-      works with `--from files` until the release exists.
+- [x] Release v0.2.0 (pre-release, 2026-10-09): the Safari memory fixes.
 - [ ] More memory, if needed: ONNX Runtime `graphOptimizationLevel: "disabled"` started at 122 MB instead of 211 MB in
       Node but grew to 176 MB on a long sentence (check its speed); a smaller (quantized) voice model changes the sound.
 - [ ] Test on a real iPhone (sound unlock, loading bar, memory).
