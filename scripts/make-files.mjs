@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { splitFile, writeManifest, contentVersion } from "kakera/split";
+import { splitWasm } from "kakera/wasm";
 
 const root = new URL("../", import.meta.url).pathname;
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json")));
@@ -50,11 +51,18 @@ const inputs = [
   ["phonemizer.wasm", nm("piper-plus/dist/rust-wasm/piper_plus_wasm_bg.wasm")],
 ];
 
+// The phonemizer's 59 MB dictionary is built into its wasm as data segments. Browsers would keep it twice (in the
+// compiled program and in its memory), so it ships as its own file, phonemizer-data.bin, which the worker writes
+// straight into the phonemizer's memory (kakera/wasm). manifest.meta.phonemizerSegments says where each piece goes.
+const phonemizer = splitWasm(new Uint8Array(fs.readFileSync(inputs.at(-1)[1])));
+const phonemizerSegments = phonemizer.segments.map((s) => ({ offset: s.offset, length: s.bytes.length }));
+
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 const buffers = [], files = [];
-for (const [name, src] of inputs) {
-  const bytes = new Uint8Array(fs.readFileSync(src));
+const contents = inputs.map(([name, src]) => [name, new Uint8Array(fs.readFileSync(src))]);
+contents.splice(-1, 1, ["phonemizer.wasm", phonemizer.code], ["phonemizer-data.bin", Buffer.concat(phonemizer.segments.map((s) => s.bytes))]);
+for (const [name, bytes] of contents) {
   buffers.push(bytes);
   const f = splitFile(bytes, { name, outDir });
   files.push(f);
@@ -64,6 +72,6 @@ const m = writeManifest(outDir, {
   name: "yomiage-tsukuyomi",
   version: contentVersion(...buffers),
   files,
-  meta: { yomiage: pkg.version, onnxruntimeWeb: version("onnxruntime-web"), piperPlus: version("piper-plus"), model: `${MODEL_REPO}/${MODEL_FILE}` },
+  meta: { yomiage: pkg.version, onnxruntimeWeb: version("onnxruntime-web"), piperPlus: version("piper-plus"), model: `${MODEL_REPO}/${MODEL_FILE}`, phonemizerSegments },
 });
 console.log(`\n${outDir}/manifest.json: download ${mb(m.downloadSize)} MB`);

@@ -8,9 +8,13 @@
 - [ ] `yomiage/react`: `useYomiage()` and `useYomiageEngine()`, designed in API.md §11; React as an optional peer
       dependency.
 - [ ] `debugReport()` (from kakera), API.md §11.
-- [ ] **Memory** (~450 MB loaded, API.md §9). Ideas, smallest first: (1) stream the phonemizer's 59 MB dictionary
-      into its memory like wakachi does with Sudachi, so browsers don't keep it twice (~-59 MB); (2) ONNX Runtime
-      session options: `graphOptimizationLevel: "disabled"` starts at 122 MB instead of 211 MB but grew to 176 MB on
-      a long sentence (check its speed); (3) a smaller (quantized) voice model, which changes the sound.
+- [x] **Memory** (2026-10-09, measured in WebKit, Safari's engine): the phonemizer's dictionary now ships as
+      phonemizer-data.bin and is streamed into its memory (kakera/wasm): peak while loading 931 → 693 MB, speaking
+      ~680 → ~570 MB. Finished audio players are disconnected: Safari kept them, +2.3 MB per sentence until unload.
+      The WebKit measuring scripts (Playwright WebKit + macOS `footprint`) are worth keeping for CI.
+- [ ] Release v0.2.0: the worker on main needs the new files (phonemizer-data.bin), so `copy-files` from main only
+      works with `--from files` until the release exists.
+- [ ] More memory, if needed: ONNX Runtime `graphOptimizationLevel: "disabled"` started at 122 MB instead of 211 MB in
+      Node but grew to 176 MB on a long sentence (check its speed); a smaller (quantized) voice model changes the sound.
 - [ ] Test on a real iPhone (sound unlock, loading bar, memory).
 - [ ] CI: Node tests and the browser test page.

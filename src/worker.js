@@ -8,12 +8,15 @@
 //   config.json      the voice's settings
 //   model.onnx       the voice                    -> ONNX session (the bytes are dropped)
 //   phonemizer.js    wasm-bindgen glue            -> imported from a blob URL
-//   phonemizer.wasm  Japanese phonemizer          -> instantiated (the bytes are dropped)
+//   phonemizer.wasm  Japanese phonemizer, without its built-in dictionary (1.4 MB) -> kept until started
+//   phonemizer-data.bin  that dictionary (59 MB)  -> streamed straight into the phonemizer's memory as it is
+//                    created, before its start code runs, so the browser holds it once, not twice (kakera/wasm)
 import * as ort from "onnxruntime-web/wasm";
 import { PiperPlus } from "piper-plus";
 import { serveEngine, withTransfer } from "kakera/worker";
 import { collect } from "kakera/files";
 import { codedError } from "kakera/errors";
+import { initWithData } from "kakera/wasm";
 import { shiftVoicePsola, VOICE_SHIFT } from "./psola.js";
 import { reduceBreath } from "./dehiss.js";
 import { patchSpeakerEmbeddingDim } from "./piper-patch.js";
@@ -33,9 +36,17 @@ const warn = console.warn.bind(console);
 console.warn = (first, ...rest) => { if (!QUIET.some((q) => String(first).startsWith(q))) warn(first, ...rest); };
 
 async function load(_msg, ctx) {
-  let config = null, session = null, glue = null;
+  let config = null, session = null, glue = null, phonemizerCode = null, phonemizerStarted = false;
   await ctx.loadFiles({
-    onFile: async (file, chunks) => {
+    onFile: async (file, chunks, manifest) => {
+      if (file.name === "phonemizer-data.bin") {
+        if (!glue || !phonemizerCode) throw codedError("engine-failed", "phonemizer-data.bin came before phonemizer.js / phonemizer.wasm in the manifest");
+        ctx.step("start-phonemizer", { file: file.name });
+        await initWithData(glue.default, phonemizerCode, manifest.meta.phonemizerSegments, chunks);
+        phonemizerCode = null;
+        phonemizerStarted = true;
+        return;
+      }
       const bytes = await collect(chunks, file.size);
       ctx.alive();
       switch (file.name) {
@@ -57,16 +68,14 @@ async function load(_msg, ctx) {
           break;
         }
         case "phonemizer.wasm":
-          if (!glue) throw codedError("engine-failed", "phonemizer.wasm came before phonemizer.js in the manifest");
-          ctx.step("start-phonemizer", { file: file.name });
-          await glue.default({ module_or_path: bytes });
+          phonemizerCode = bytes;
           break;
         default:
           ctx.log(`ignoring unknown file ${file.name}`);
       }
     },
   });
-  if (!config || !session || !glue) throw codedError("engine-failed", "the voice files are incomplete (run yomiage copy-files again)");
+  if (!config || !session || !phonemizerStarted) throw codedError("engine-failed", "the voice files are incomplete (run yomiage copy-files again)");
 
   // piper-plus wants a model URL and fetches the config next to it, then creates the ONNX session itself. Both were
   // already done above (from the stored parts), so hand it the results instead. It also fetches Chinese dictionaries

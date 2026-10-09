@@ -66,7 +66,16 @@ export class Playback {
     src.start(at);
     this.next = at + buf.duration;
     this.sources.add(src);
-    this.last = new Promise((resolve) => { src.onended = () => { this.sources.delete(src); resolve(); }; });
+    this.last = new Promise((resolve) => {
+      src.onended = () => {
+        this.sources.delete(src);
+        // Let go of the player and its audio: Safari keeps finished players that are still connected (and their
+        // buffers) alive, about 2 MB per sentence, until the page closes.
+        src.onended = null;
+        try { src.disconnect(); src.buffer = null; } catch { /* already released */ }
+        resolve();
+      };
+    });
     if (onStart) {
       const t = setTimeout(() => { this.timers.delete(t); onStart(); }, Math.max(0, (at - c.currentTime) * 1000));
       this.timers.add(t);
