@@ -55,7 +55,7 @@ Options (all optional):
 
 | Option | Default | What it does |
 |---|---|---|
-| `filesUrl` | `"/yomiage/"` | Where `copy-files` put the files, if not the default |
+| `filesUrl` | `"/yomiage/"` | Where `copy-files` put the files, if not the default. Can be another site, e.g. `"https://example.github.io/yomiage-files/"`, if it sends CORS headers (GitHub Pages and CDNs do; GitHub release links don't) |
 | `preset`, `speed`, `pitch`, `formant`, `breathReduction`, `expressiveness`, `rhythmVariation` | see §4 | Default voice settings for this voice's `speak()` calls |
 | `idleTimeout` | `60_000` | Free the memory after this many ms unused. `0` = never |
 | `stopWhenHidden` | `true` | Free the memory while the page is in the background (iOS kills heavy background tabs first). Also stops playback |

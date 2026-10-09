@@ -42,24 +42,6 @@ function checkOtherLanguages(v) {
 }
 
 /**
- * Browsers say nothing useful when a worker's script can't be loaded ("unknown error"), so find out why.
- * The usual causes: copy-files wasn't run (404), or the site's server isn't reachable.
- */
-async function explainStartFailure(workerUrl, err) {
-  let res;
-  try {
-    res = await fetch(workerUrl, { method: "HEAD", cache: "no-store" });
-  } catch {
-    return new VoiceError("download-failed", `could not reach ${workerUrl} (is the server running, is the device online?)`, { cause: err });
-  }
-  if (res.status === 404) {
-    return new VoiceError("engine-failed", `${workerUrl.replace(/\?.*/, "")} is missing: run "yomiage copy-files" into the folder served at that address`, { cause: err });
-  }
-  if (!res.ok) return new VoiceError("download-failed", `${workerUrl}: ${res.status} ${res.statusText}`, { cause: err });
-  return err;
-}
-
-/**
  * A voice: a light handle with default settings. The engine is shared by all voices and loaded by load().
  * @param {object} [options]  see API.md §2
  */
@@ -78,7 +60,8 @@ export function createVoice(options = {}) {
   const handle = pool.handle(definedOnly({
     name: "tsukuyomi",
     filesUrl: base,
-    createWorker: () => new Worker(workerUrl, { type: "module" }),
+    workerUrl, // kakera starts it, also from another site (CORS), and explains why it didn't start
+    missingHint: 'run "yomiage copy-files" into the folder served at that address',
     idleTimeout, stopWhenHidden, crashGuard, persistStorage,
     loadStall: timeouts.loadStall,
   }));
@@ -112,12 +95,7 @@ export function createVoice(options = {}) {
 
     /** Download (first time) and start the engine. Resolves { fromCache }. */
     async load() {
-      let res;
-      try {
-        res = await handle.load();
-      } catch (err) {
-        throw err.code === "engine-failed" && /failed to start/.test(err.message) ? await explainStartFailure(workerUrl, err) : err;
-      }
+      const res = await handle.load();
       if (!versionChecked) {
         const engine = await handle.call("version");
         if (engine !== VERSION && engine !== "dev" && VERSION !== "dev") {
