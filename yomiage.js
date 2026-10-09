@@ -321,6 +321,29 @@ function loadTracker(profile) {
     }
   };
 }
+function startWorker(url) {
+  const u = new URL(url, location.href);
+  if (u.origin === location.origin) return new Worker(u, { type: "module" });
+  const blobUrl = URL.createObjectURL(new Blob([`import ${JSON.stringify(u.href)};`], { type: "text/javascript" }));
+  const worker = new Worker(blobUrl, { type: "module" });
+  const revoke = () => URL.revokeObjectURL(blobUrl);
+  worker.addEventListener("message", revoke, { once: true });
+  worker.addEventListener("error", revoke, { once: true });
+  return worker;
+}
+async function explainStartFailure(workerUrl, err, ErrorClass, missingHint) {
+  const url = new URL(workerUrl, location.href);
+  const otherSite = url.origin !== location.origin;
+  let res;
+  try {
+    res = await fetch(url, { method: "HEAD", cache: "no-store" });
+  } catch {
+    return new ErrorClass("download-failed", otherSite ? `could not load ${url.href}: is the site reachable, and does it send CORS headers (Access-Control-Allow-Origin)?` : `could not reach ${url.href} (is the server running, is the device online?)`, { cause: err });
+  }
+  if (res.status === 404) return new ErrorClass("engine-failed", `${url.href.replace(/\?.*/, "")} is missing${missingHint ? `: ${missingHint}` : ""}`, { cause: err });
+  if (!res.ok) return new ErrorClass("download-failed", `${url.href}: ${res.status} ${res.statusText}`, { cause: err });
+  return err;
+}
 function unsupported() {
   if (typeof WebAssembly !== "object") return "WebAssembly";
   if (typeof Worker !== "function") return "Web Workers";
@@ -542,7 +565,8 @@ function createPool({ prefix, ErrorClass = KakeraError }) {
   class Handle {
     constructor(options) {
       const o = { ...DEFAULTS, ...options };
-      if (!o.name || !o.filesUrl || typeof o.createWorker !== "function") throw new TypeError("handle(): name, filesUrl and createWorker are required");
+      if (o.workerUrl) o.createWorker = () => startWorker(o.workerUrl);
+      if (!o.name || !o.filesUrl || typeof o.createWorker !== "function") throw new TypeError("handle(): name, filesUrl and workerUrl (or createWorker) are required");
       o.crashGuard = o.crashGuard === false ? false : { ...DEFAULTS.crashGuard, ...o.crashGuard };
       this._opts = o;
       const manifestUrl = new URL("manifest.json", new URL(o.filesUrl.endsWith("/") ? o.filesUrl : `${o.filesUrl}/`, location.href)).href;
@@ -629,7 +653,8 @@ function createPool({ prefix, ErrorClass = KakeraError }) {
         this._host.users.delete(this);
         this._host.release();
         this._fail("error");
-        throw err;
+        const { workerUrl, missingHint } = this._opts;
+        throw workerUrl && err.code === "engine-failed" && /failed to start/.test(err.message) ? await explainStartFailure(workerUrl, err, ErrorClass, missingHint) : err;
       }
     }
     _fail(status) {
@@ -955,19 +980,6 @@ function checkOtherLanguages(v) {
   if (!OTHER_LANGUAGES.includes(v)) throw new TypeError(`otherLanguages must be "read" or "skip", not ${JSON.stringify(v)}`);
   return v;
 }
-async function explainStartFailure(workerUrl, err) {
-  let res;
-  try {
-    res = await fetch(workerUrl, { method: "HEAD", cache: "no-store" });
-  } catch {
-    return new VoiceError("download-failed", `could not reach ${workerUrl} (is the server running, is the device online?)`, { cause: err });
-  }
-  if (res.status === 404) {
-    return new VoiceError("engine-failed", `${workerUrl.replace(/\?.*/, "")} is missing: run "yomiage copy-files" into the folder served at that address`, { cause: err });
-  }
-  if (!res.ok) return new VoiceError("download-failed", `${workerUrl}: ${res.status} ${res.statusText}`, { cause: err });
-  return err;
-}
 function createVoice(options = {}) {
   const {
     filesUrl = "/yomiage/",
@@ -987,7 +999,9 @@ function createVoice(options = {}) {
   const handle = pool.handle(definedOnly({
     name: "tsukuyomi",
     filesUrl: base,
-    createWorker: () => new Worker(workerUrl, { type: "module" }),
+    workerUrl,
+    // kakera starts it, also from another site (CORS), and explains why it didn't start
+    missingHint: 'run "yomiage copy-files" into the folder served at that address',
     idleTimeout,
     stopWhenHidden,
     crashGuard,
@@ -1019,12 +1033,7 @@ function createVoice(options = {}) {
     info: () => handle.info(),
     /** Download (first time) and start the engine. Resolves { fromCache }. */
     async load() {
-      let res;
-      try {
-        res = await handle.load();
-      } catch (err) {
-        throw err.code === "engine-failed" && /failed to start/.test(err.message) ? await explainStartFailure(workerUrl, err) : err;
-      }
+      const res = await handle.load();
       if (!versionChecked) {
         const engine = await handle.call("version");
         if (engine !== VERSION && engine !== "dev" && VERSION !== "dev") {
