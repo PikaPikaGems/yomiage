@@ -131,6 +131,8 @@ export interface Voice {
   on<E extends keyof VoiceEvents>(event: E, listener: (value: VoiceEvents[E]) => void): () => void;
   /** Download size and whether the files are already on this device, without downloading anything. */
   info(): Promise<VoiceInfo>;
+  /** Plain-text, privacy-safe diagnostics for a bug report. Never includes spoken text. */
+  debugReport(): Promise<string>;
   /** Download (when needed) and start the engine. Shared by all voices on the page. */
   load(): Promise<LoadResult>;
   /** Read aloud. Resolves "done", or "stopped" when stop(), a newer speak() or the page being hidden ended it. */

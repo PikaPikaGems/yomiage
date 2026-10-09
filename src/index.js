@@ -93,6 +93,9 @@ export function createVoice(options = {}) {
     /** { cached, downloadBytes, downloadMB } without downloading anything. */
     info: () => handle.info(),
 
+    /** Plain-text report for bug reports. Never includes spoken text. */
+    debugReport: () => handle.debugReport({ packageName: "yomiage", packageVersion: VERSION }),
+
     /** Download (first time) and start the engine. Resolves { fromCache }. */
     async load() {
       const res = await handle.load();
