@@ -13,7 +13,8 @@
       ~680 → ~570 MB. Finished audio players are disconnected: Safari kept them, +2.3 MB per sentence until unload.
       The WebKit measuring scripts (Playwright WebKit + macOS `footprint`) are worth keeping for CI.
 - [x] Release v0.2.0 (pre-release, 2026-10-09): the Safari memory fixes.
-- [ ] More memory, if needed: ONNX Runtime `graphOptimizationLevel: "disabled"` started at 122 MB instead of 211 MB in
-      Node but grew to 176 MB on a long sentence (check its speed); a smaller (quantized) voice model changes the sound.
+- [x] Tried ONNX Runtime `graphOptimizationLevel: "disabled"` (2026-10-09): same speed and 122 instead of 211 MB of
+      wasm memory in Node, but ~60 MB *more* for the whole tab in WebKit (673–686 vs 618 MB speaking). Not used.
+- [ ] More memory, if needed: a smaller (quantized) voice model, which changes the sound.
 - [ ] Test on a real iPhone (sound unlock, loading bar, memory).
 - [ ] CI: Node tests and the browser test page.
