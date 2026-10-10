@@ -310,6 +310,22 @@ $("run").onclick = async () => {
     eq(v.status, "ready", "status after");
   });
 
+  await t("page hidden after dispose() and load(): speech stops, nothing reloads", async () => {
+    v.dispose();
+    await v.load();
+    const statuses = [];
+    const off = v.on("status", (st) => statuses.push(st));
+    const speaking = v.speak("これはとても長い文章です。".repeat(12), { speed: 1.5 });
+    await sleep(1500);
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    delete document.visibilityState;
+    eq(await Promise.race([speaking, sleep(5000).then(() => "still speaking")]), "stopped", "result");
+    await sleep(500);
+    off();
+    assert(!statuses.includes("loading"), `reloaded while hidden: ${statuses}`);
+  });
+
   const failed = results.filter((r) => !r.ok).length;
   $("summary").textContent = failed ? `${failed} of ${results.length} failed` : `All ${results.length} passed`;
   $("summary").className = failed ? "bad" : "ok";
