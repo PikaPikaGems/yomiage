@@ -47,7 +47,31 @@ downloadButton.onclick = async () => { localStorage.setItem("yomiage", "on"); aw
 deleteButton.onclick = async () => { localStorage.removeItem("yomiage"); await voice.clearCache(); };
 ```
 
-With React, the same with `useYomiageEngine()`: `e.cached`, `e.load()` and `e.clearCache()`.
+With React, the same with `useYomiageEngine()`:
+
+```tsx
+import { useEffect } from "react";
+import { useYomiageEngine } from "yomiage/react";
+
+function ReadAloudSetting() {
+  const voice = useYomiageEngine();
+
+  // they said yes before and the files are on this device: turn it back on (no download)
+  useEffect(() => {
+    if (localStorage.getItem("yomiage") === "on" && voice.cached && voice.status === "not-loaded") voice.load();
+  }, [voice.cached]);
+
+  const turnOn = () => { localStorage.setItem("yomiage", "on"); voice.load(); };
+  const turnOff = () => { localStorage.removeItem("yomiage"); voice.clearCache(); };
+
+  return voice.status === "not-loaded"
+    ? <button onClick={turnOn}>{voice.cached ? "Turn on" : `Download (${voice.downloadMB ?? "…"} MB)`}</button>
+    : <button onClick={turnOff}>Delete from device</button>;
+}
+```
+
+`voice.cached` is `null` for a moment after mounting (the manifest is being read), which is why the effect waits
+for it.
 
 ## Voice settings
 
