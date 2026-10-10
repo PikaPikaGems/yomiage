@@ -30,10 +30,11 @@
 <h1>yomiage test page</h1>
 <p>Status: <b id="status">…</b> <span id="size"></span></p>
 <div id="loading" hidden><progress id="progress" max="1" value="0"></progress><div><b id="stage"></b> <small id="step"></small></div></div>
-<div class="row">
-  <button id="load">Load voice</button>
-  <button id="unload">Unload</button>
-  <button id="clear">Delete files from device</button>
+  <div class="row">
+    <button id="load">Load voice</button>
+    <button id="unload">Unload</button>
+    <button id="clear">Delete files from device</button>
+    <button id="debug">Copy debug report</button>
 </div>
 
 <h2>Speak</h2>
@@ -142,6 +143,17 @@ $("load").onclick = async () => {
 };
 $("unload").onclick = () => voice.unload();
 $("clear").onclick = async () => { voice.dispose(); await voice.clearCache(); log("files deleted from this device"); voice.info().then(({ downloadMB }) => { $("size").textContent = `(download ${downloadMB} MB)`; }); };
+$("debug").onclick = async () => {
+  try {
+    const report = await voice.debugReport();
+    try { await navigator.clipboard.writeText(report); }
+    catch {
+      const area = document.createElement("textarea"); area.value = report; area.style.position = "fixed"; area.style.opacity = "0";
+      document.body.append(area); area.select(); document.execCommand("copy"); area.remove();
+    }
+    log("debug report copied to clipboard");
+  } catch (e) { log(`could not make debug report: ${e.message}`); }
+};
 
 function showReading(text, start, end) {
   $("reading").replaceChildren(text.slice(0, start), Object.assign(document.createElement("mark"), { textContent: text.slice(start, end) }), text.slice(end));
