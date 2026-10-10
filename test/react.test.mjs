@@ -105,3 +105,16 @@ test("unavailable comes from the shared engine", async () => {
   assert.equal(state().status, "unavailable");
   assert.equal(typeof state().reason, "string");
 });
+
+test("deleting the files while speaking: stopped, then not-loaded, no error", async () => {
+  const { engine, store, state } = setup();
+  await store.load();
+  const p = state().speak("猫");
+  engine.clearCache = async () => {
+    engine.calls[0].reject(Object.assign(new Error("files deleted"), { code: "disposed" }));
+    engine.emit("status", "not-loaded");
+  };
+  await store.clearCache();
+  assert.equal(await p, "stopped");
+  assert.equal(state().status, "not-loaded");
+});

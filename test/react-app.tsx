@@ -5,9 +5,9 @@ import { createRoot } from "react-dom/client";
 import { useYomiage, useYomiageEngine, type YomiageState, type YomiageEngine } from "../dist/react.js";
 
 const FILES = new URL("./files/", location.href).href;
-type Hooks = { a?: YomiageState; b?: YomiageState; engine?: YomiageEngine; showA?: (show: boolean) => void };
+type Hooks = { a?: YomiageState; b?: YomiageState; statuses: string[]; engine?: YomiageEngine; showA?: (show: boolean) => void };
 const w = window as unknown as { hooks: Hooks };
-w.hooks = {};
+w.hooks = { statuses: [] };
 
 function ReadAloud({ name, text, preset }: { name: "a" | "b"; text: string; preset: "soft" | "deep" }) {
   const y = useYomiage({ filesUrl: FILES, preset, speed: 1.2 });
@@ -29,7 +29,7 @@ function ReadAloud({ name, text, preset }: { name: "a" | "b"; text: string; pres
 
 function EngineRow() {
   const e = useYomiageEngine({ filesUrl: FILES });
-  useEffect(() => { w.hooks.engine = e; });
+  useEffect(() => { w.hooks.engine = e; if (w.hooks.statuses.at(-1) !== e.status) w.hooks.statuses.push(e.status); });
   return <div className="row">
     Voice: {e.cached == null ? "…" : e.cached ? "on this device" : `${e.downloadMB} MB to download`}, <b>{e.status}</b>
     {e.progress && <progress value={e.progress.fraction} />}

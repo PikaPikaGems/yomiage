@@ -145,7 +145,10 @@ export interface Voice {
   unload(): void;
   /** Back to "not-loaded"; load() is needed again. */
   dispose(): void;
-  /** Delete the downloaded files from this device. */
+  /**
+   * Delete the downloaded files from this device, free the memory and put every voice on the page back to
+   * "not-loaded" (speech stops). Nothing downloads again until a load().
+   */
   clearCache(): Promise<void>;
   /** Forget a recorded crash so load() tries again. */
   resetCrashGuard(): void;

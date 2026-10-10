@@ -198,8 +198,11 @@ const blob = toWav(audio);                                                // a W
 voice.stop();               // stop playback
 voice.unload();             // free the memory now (if no other voice on the page needs it); reloads when needed
 voice.dispose();            // back to "not-loaded"
-await voice.clearCache();   // delete the downloaded files from this device
+await voice.clearCache();   // delete the downloaded files from this device (see below)
 ```
+
+`clearCache()` is the full "turn it off": it deletes the files, frees the memory, stops speech and puts **every**
+voice on the page back to `"not-loaded"`. Nothing is downloaded again until `load()`.
 
 ## 7. When things go wrong
 
@@ -312,7 +315,7 @@ e.progress      // { stage, fraction, ... } while loading, otherwise null
 e.error         // the last error, or null
 e.load()        // download if needed, then load into memory (never rejects: see e.status and e.error)
 e.unload()      // free the memory, keep the files
-e.clearCache()  // delete the files from this device
+e.clearCache()  // delete the files from this device and free the memory: back to "not-loaded"
 e.debugReport() // text to paste into a bug report
 ```
 

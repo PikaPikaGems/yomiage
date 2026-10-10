@@ -101,7 +101,8 @@ export function createSpeaker(store: YomiageEngineStore, voice: Pick<Voice, "spe
         settings.onSentence?.(s);
       },
     }).catch((err: unknown): "stopped" => {
-      if (!ctrl.signal.aborted) error = err instanceof Error ? err : new Error(String(err));
+      // "disposed": the files were deleted (clearCache()); the status says "not-loaded" now, not an error
+      if (!ctrl.signal.aborted && (err as { code?: unknown } | null)?.code !== "disposed") error = err instanceof Error ? err : new Error(String(err));
       return "stopped";
     }).finally(() => {
       speeches.delete(ctrl);

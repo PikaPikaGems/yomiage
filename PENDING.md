@@ -13,6 +13,8 @@
       One shared voice per filesUrl for all hooks (no provider). Node tests (test/react.test.mjs, with a fake
       engine), type tests (test/types/react.ts), and test/react.html (a small React app with automatic checks;
       `npm run build:test-react`), passing in Chromium and WebKit. Not released yet.
+- [x] `clearCache()` also frees the memory and puts every handle back to `"not-loaded"` (2026-10-10, in kakera):
+      before, the next call after deleting the files downloaded them again by itself.
 - [x] `debugReport()` (from kakera), API.md §11 (2026-10-09).
 - [x] **Memory** (2026-10-09, measured in WebKit, Safari's engine): the phonemizer's dictionary now ships as
       phonemizer-data.bin and is streamed into its memory (kakera/wasm): peak while loading 931 → 693 MB, speaking

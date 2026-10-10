@@ -32,13 +32,14 @@ async function until(what, cond, ms = 60_000) {
   while (!cond()) { if (Date.now() - t0 > ms) throw new Error(`timed out waiting for ${what}`); await sleep(20); }
 }
 const assert = (ok, msg) => { if (!ok) throw new Error(msg); };
-const partsFetched = () => performance.getEntriesByType("resource").filter((e) => /\.part\d+/.test(e.name)).length;
+// downloads happen in the worker (the page can't see them), but they always show as status "downloading"
+const downloads = () => h().statuses.filter((s) => s === "downloading").length;
 
 const checks = [
   ["nothing loads on mount: not-loaded, size known, no parts fetched", async () => {
     await until("info()", () => h().a?.status === "not-loaded" && h().a.cached != null && h().engine?.cached != null, 5000);
     assert(typeof h().a.downloadMB === "number", "downloadMB");
-    assert(partsFetched() === 0, "parts were fetched before load()");
+    assert(downloads() === 0 && h().engine.status === "not-loaded", "nothing before load()");
   }],
   ["load() from the engine row makes both components ready", async () => {
     await h().engine.load();
@@ -76,12 +77,26 @@ const checks = [
     await until("a back, ready at once", () => h().a?.status === "ready", 2000);
   }],
   ["after unload(), speak() reloads from the device and speaks", async () => {
-    const before = partsFetched();
+    const before = downloads();
     h().engine.unload();
     await until("stopped", () => h().engine.status === "stopped", 5000);
     assert(h().a.status === "ready", h().a.status);
     assert(await h().a.speak("はい。") === "done", "spoke");
-    assert(partsFetched() === before, "no download");
+    assert(downloads() === before, "no download");
+  }],
+  ["Delete from device while speaking: stopped, every component back to not-loaded; only load() downloads again", async () => {
+    const p = h().a.speak("これはとても長い文章です。最後まで読まれることはありません。");
+    await until("a speaking", () => h().a.speaking, 5000);
+    const before = downloads();
+    await h().engine.clearCache();
+    assert(await p === "stopped", "stopped");
+    await until("not-loaded", () => h().engine.status === "not-loaded" && h().a.status === "not-loaded" && h().b.status === "not-loaded", 5000);
+    assert(h().engine.cached === false, "cached");
+    await sleep(500);
+    assert(downloads() === before && h().engine.status === "not-loaded", "downloaded without load()");
+    await h().engine.load();
+    await until("ready", () => h().a.status === "ready" && h().b.status === "ready");
+    assert(downloads() === before + 1 && h().engine.cached === true, "load() downloaded");
   }],
   ["debugReport() from the engine hook", async () => {
     assert(/"name": "yomiage"/.test(await h().engine.debugReport()), "package name");
