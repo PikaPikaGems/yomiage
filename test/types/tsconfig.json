@@ -13,6 +13,7 @@
   },
   "files": [
     "check.ts",
-    "compatibility.ts"
+    "compatibility.ts",
+    "react.ts"
   ]
 }

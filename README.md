@@ -17,6 +17,9 @@ await voice.load();
 button.onclick = () => voice.speak("こんにちは。");
 ```
 
+React (optional, React 18 or later): `useYomiage()` and `useYomiageEngine()` from `yomiage/react`, in
+[API.md §11](API.md#11-react).
+
 Every app using yomiage must show the Tsukuyomi-chan credit (`CREDIT`); see [NOTICE.md](NOTICE.md).
 
 ## Voice settings
@@ -50,10 +53,13 @@ src/psola.ts        pitch / formant shifting (PSOLA)
 src/dehiss.ts       breath reduction filter (plain JavaScript, matches the Web Audio version)
 src/piper-patch.ts  workaround for a piper-plus 0.7.0 speaker-embedding bug
 src/wav.ts          toWav
+src/react.ts        yomiage/react: the hooks (React is an optional peer dependency)
+src/react-state.ts  useYomiage()'s state without React, so Node tests can drive it
 bin/yomiage.mjs     yomiage copy-files
-scripts/build.mjs   builds dist/yomiage.js and dist/yomiage-worker.js (esbuild)
+scripts/build.mjs   builds dist/yomiage.js, dist/react.js and dist/yomiage-worker.js (esbuild)
 scripts/make-files.mjs  makes the voice files (files/) from the model and node_modules
-test/               Node tests; voice.html: manual controls + automatic checks in the browser
+test/               Node tests; voice.html: manual controls + automatic checks in the browser;
+                    react.html: the hooks in a small React app + automatic checks
 ```
 
 ## Development
@@ -72,6 +78,7 @@ npm run files                   # files/ (downloads the model from Hugging Face 
                                 #   or: node scripts/make-files.mjs --model-dir ../jp-tts-playground/models/tsukuyomi
 node bin/yomiage.mjs copy-files test/files --from files
 python3 -m http.server 8093     # open http://localhost:8093/test/voice.html, Load voice, Run checks
+npm run build:test-react        # test/react-app.js for http://localhost:8093/test/react.html
 ```
 
 On an iPhone on the same Wi-Fi: serve with `--bind 0.0.0.0` and open `http://<this computer's IP>:8093/test/voice.html`.

@@ -9,6 +9,11 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/yomiage.js",
       "default": "./dist/yomiage.js"
+    },
+    "./react": {
+      "types": "./dist/types/react.d.ts",
+      "import": "./dist/react.js",
+      "default": "./dist/react.js"
     }
   },
   "bin": {
@@ -28,15 +33,28 @@
     "test:types": "tsc --noEmit -p tsconfig.json && tsc -p test/types",
     "publish:demo": "node scripts/publish-demo.mjs",
     "test:webkit": "node test/webkit.mjs",
-    "pretest": "npm run build"
+    "pretest": "npm run build",
+    "build:test-react": "node test/build-react.mjs"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
     "@webgpu/types": "^0.1.74",
     "esbuild": "^0.25.0",
     "kakera": "file:../kakera",
     "onnxruntime-web": "1.30.0",
     "piper-plus": "0.7.0",
     "playwright-core": "1.55.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "typescript": "^5.9.0"
   },
   "keywords": [

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yomiage/react test</title>
+<style>
+  body { font: 15px/1.6 system-ui, sans-serif; max-width: 760px; margin: 2em auto; padding: 0 16px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .pass { color: #1a7f37; } .fail { color: #cf222e; }
+</style>
+</head>
+<body>
+<h1>yomiage/react</h1>
+<p>The hooks as an app uses them: <code>useYomiageEngine()</code> in the row, two <code>useYomiage()</code>
+components below with their own presets. Build first: <code>npm run build &amp;&amp; npm run build:test-react</code>,
+and <code>node bin/yomiage.mjs copy-files test/files --from files</code>.</p>
+<div id="app"></div>
+
+<h2>Checks</h2>
+<p>Runs automatic checks (loads the voice; plays short sounds).</p>
+<div class="row"><button id="run">Run checks</button> <b id="summary"></b></div>
+<ol id="results"></ol>
+
+<script type="module">
+import "./react-app.js";
+const $ = (id) => document.getElementById(id);
+const h = () => window.hooks;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function until(what, cond, ms = 60_000) {
+  const t0 = Date.now();
+  while (!cond()) { if (Date.now() - t0 > ms) throw new Error(`timed out waiting for ${what}`); await sleep(20); }
+}
+const assert = (ok, msg) => { if (!ok) throw new Error(msg); };
+const partsFetched = () => performance.getEntriesByType("resource").filter((e) => /\.part\d+/.test(e.name)).length;
+
+const checks = [
+  ["nothing loads on mount: not-loaded, size known, no parts fetched", async () => {
+    await until("info()", () => h().a?.status === "not-loaded" && h().a.cached != null && h().engine?.cached != null, 5000);
+    assert(typeof h().a.downloadMB === "number", "downloadMB");
+    assert(partsFetched() === 0, "parts were fetched before load()");
+  }],
+  ["load() from the engine row makes both components ready", async () => {
+    await h().engine.load();
+    await until("both ready", () => h().a?.status === "ready" && h().b?.status === "ready");
+    assert(h().engine.status === "ready" && h().engine.cached === true, `${h().engine.status} ${h().engine.cached}`);
+  }],
+  ["speak(): speaking and sentence follow the speech, only in the component that speaks", async () => {
+    const sentences = [];
+    const done = h().a.speak("こんにちは。はい。", { onSentence: (s) => sentences.push(s.text) });
+    await until("speaking", () => h().a.speaking, 5000);
+    assert(!h().b.speaking, "b is not speaking");
+    await until("a sentence", () => h().a.sentence != null);
+    assert(h().a.sentence.text === "こんにちは。", h().a.sentence.text);
+    const r = await done;
+    assert(r === "done", `${r}: ${h().a.status === "error" ? h().a.error.message : ""}`);
+    await until("not speaking", () => !h().a.speaking && h().a.sentence == null, 2000);
+    assert(sentences.join("|") === "こんにちは。|はい。", sentences.join("|"));
+  }],
+  ["a newer speak() elsewhere stops it (stopped); stop() stops the own speech", async () => {
+    const first = h().a.speak("これはとても長い文章です。最後まで読まれることはありません。");
+    await until("a speaking", () => h().a.speaking, 5000);
+    const second = h().b.speak("これも長い文章です。途中で止めます。");
+    assert(await first === "stopped", "a stopped");
+    await until("b speaking", () => h().b.speaking, 5000);
+    h().b.stop();
+    assert(await second === "stopped", "b stopped");
+  }],
+  ["unmounting stops what that component was saying; the voice stays loaded", async () => {
+    const p = h().a.speak("これはとても長い文章です。最後まで読まれることはありません。");
+    await until("a speaking", () => h().a.speaking, 5000);
+    h().showA(false);
+    assert(await p === "stopped", "stopped on unmount");
+    assert(h().b.status === "ready", h().b.status);
+    h().showA(true);
+    await until("a back, ready at once", () => h().a?.status === "ready", 2000);
+  }],
+  ["after unload(), speak() reloads from the device and speaks", async () => {
+    const before = partsFetched();
+    h().engine.unload();
+    await until("stopped", () => h().engine.status === "stopped", 5000);
+    assert(h().a.status === "ready", h().a.status);
+    assert(await h().a.speak("はい。") === "done", "spoke");
+    assert(partsFetched() === before, "no download");
+  }],
+  ["debugReport() from the engine hook", async () => {
+    assert(/"name": "yomiage"/.test(await h().engine.debugReport()), "package name");
+  }],
+];
+
+$("run").onclick = async () => {
+  $("results").textContent = "";
+  let pass = 0;
+  for (const [name, fn] of checks) {
+    const li = document.createElement("li");
+    li.textContent = `${name} …`;
+    $("results").append(li);
+    try { await fn(); li.className = "pass"; li.textContent = `✓ ${name}`; pass++; }
+    catch (e) { li.className = "fail"; li.textContent = `✗ ${name}: ${e.message}`; console.error(e); }
+  }
+  $("summary").textContent = `${pass} / ${checks.length} passed`;
+};
+</script>
+</body>
+</html>

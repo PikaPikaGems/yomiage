@@ -9,8 +9,10 @@
 - [x] Demo site: https://pikapikagems.github.io/yomiage/ (`npm run publish:demo` updates it).
 - [x] First release: v0.1.0 (pre-release, 2026-10-09) with the tarball and `files/`; the playground installs from it.
       Next releases: bump the version, `npm pack`, `gh release create v<version> yomiage-<version>.tgz files/*`.
-- [ ] `yomiage/react`: `useYomiage()` and `useYomiageEngine()`, designed in API.md §11; React as an optional peer
-      dependency.
+- [x] `yomiage/react` (2026-10-10): `useYomiage()` and `useYomiageEngine()`, API.md §11; React ≥ 18 as an optional peer dependency.
+      One shared voice per filesUrl for all hooks (no provider). Node tests (test/react.test.mjs, with a fake
+      engine), type tests (test/types/react.ts), and test/react.html (a small React app with automatic checks;
+      `npm run build:test-react`), passing in Chromium and WebKit. Not released yet.
 - [x] `debugReport()` (from kakera), API.md §11 (2026-10-09).
 - [x] **Memory** (2026-10-09, measured in WebKit, Safari's engine): the phonemizer's dictionary now ships as
       phonemizer-data.bin and is streamed into its memory (kakera/wasm): peak while loading 931 → 693 MB, speaking

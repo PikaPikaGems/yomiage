@@ -14,7 +14,7 @@ button.onclick = () => voice.speak("こんにちは。今日はいい天気で�
 // and show CREDIT somewhere on the page (required by the voice's terms)
 ```
 
-Status of this page: implemented as described, except §9 (iPhone memory, not measured yet) and §10 (React, later).
+Status of this page: implemented as described, except §9 (iPhone memory, not measured yet).
 
 ---
 
@@ -250,7 +250,7 @@ it further are in PENDING.md.
 Types are generated from the TypeScript source and included (`dist/types/index.d.ts`): `Voice`, `VoiceOptions`, `SpeakOptions`, `LoadProgress`, `VoiceError` and
 the rest. Nothing to install.
 
-## 11. React *(planned, not built yet)*
+## 11. React
 
 `yomiage/react`, with React as an optional peer dependency (plain-JS apps never need it). Two hooks:
 `useYomiage()` where the speaking happens, `useYomiageEngine()` to manage the download and memory.
@@ -282,10 +282,20 @@ function ReadAloud({ text }) {
 | `"not-loaded"` | `load`, `cached`, `downloadMB` |
 | `"loading"` | `progress` (`stage` is `"downloading"` or `"preparing"`) |
 | `"ready"` | `speak(text, settings?)`, `stop()`, `speaking`, `sentence` (`{ text, start, end }` being read, or `null`) |
+
+- `cached` and `downloadMB` are `null` for a moment after mounting, until the small manifest file has been read.
+- `speak()` takes the same settings as `voice.speak()` (on top of the hook's options) and resolves `"done"` or
+  `"stopped"`. It never rejects: a failure (e.g. `audio-blocked`) shows as `status: "error"`, and `retry()` speaks
+  the same text again. Call it from a tap or click, as always on iPhone.
+- `stop()` and `speaking` are about this component: `stop()` ends what it is saying. A `speak()` from another
+  component still stops it (one voice speaks at a time, §4), unless that one uses `queue: true`.
 | `"unavailable"` | `reason` |
 | `"error"` | `error`, `retry` |
 
-The fields exist only in their status, so TypeScript catches `speak()` before the voice is ready. After the memory
+The fields exist only in their status, so TypeScript catches `speak()` before the voice is ready.
+All hooks share one voice per `filesUrl`, without a provider: the engine options (`filesUrl`, `idleTimeout`,
+`stopWhenHidden`, `crashGuard`, `timeouts`, `persistStorage`) come from the first hook that uses that `filesUrl`;
+the voice settings (`preset`, `speed`, ...) belong to each `useYomiage()`. After the memory
 was freed (a minute unused, the page hidden, `unload()`), `status` is `"loading"` for a moment on the next
 `speak()`: it reloads from the device, no download. Unmounting stops the sound this component started; the voice
 stays loaded for the others.
@@ -296,11 +306,11 @@ change it. wakachi's `useWakachiEngine()` returns the same shape, so one setting
 ```tsx
 const e = useYomiageEngine();
 e.status        // "not-loaded" | "downloading" | "loading" | "ready" | "stopped" | "unavailable" | "error"
-e.cached        // the files are on this device
-e.downloadMB    // 65
+e.cached        // the files are on this device (null until known)
+e.downloadMB    // 65 (null until known)
 e.progress      // { stage, fraction, ... } while loading, otherwise null
 e.error         // the last error, or null
-e.load()        // download if needed, then load into memory
+e.load()        // download if needed, then load into memory (never rejects: see e.status and e.error)
 e.unload()      // free the memory, keep the files
 e.clearCache()  // delete the files from this device
 e.debugReport() // text to paste into a bug report
@@ -325,5 +335,5 @@ function Row({ name, e }) {
 `voice.debugReport()` returns plain text that can be pasted into a bug report. It includes package and kakera
 versions, browser and device details, the files address and manifest version, status, the last load error and its
 causes, which file parts are on the device, storage estimates, the crash-guard record, and the last load's log and
-timings. It never includes spoken text. The shared report is provided by kakera. A future React engine hook will
-expose the same report as `e.debugReport()`.
+timings. It never includes spoken text. The shared report is provided by kakera. `useYomiageEngine()` exposes
+the same report as `e.debugReport()`.
