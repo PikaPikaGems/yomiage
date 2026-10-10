@@ -11,7 +11,7 @@
       Next releases: bump the version, `npm pack`, `gh release create v<version> yomiage-<version>.tgz files/*`.
 - [ ] `yomiage/react`: `useYomiage()` and `useYomiageEngine()`, designed in API.md §11; React as an optional peer
       dependency.
-- [ ] `debugReport()` (from kakera), API.md §11.
+- [x] `debugReport()` (from kakera), API.md §11 (2026-10-09).
 - [x] **Memory** (2026-10-09, measured in WebKit, Safari's engine): the phonemizer's dictionary now ships as
       phonemizer-data.bin and is streamed into its memory (kakera/wasm): peak while loading 931 → 693 MB, speaking
       ~680 → ~570 MB. Finished audio players are disconnected: Safari kept them, +2.3 MB per sentence until unload.
