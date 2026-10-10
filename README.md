@@ -22,6 +22,33 @@ React (optional, React 18 or later): `useYomiage()` and `useYomiageEngine()` fro
 
 Every app using yomiage must show the Tsukuyomi-chan credit (`CREDIT`); see [NOTICE.md](NOTICE.md).
 
+## Nothing downloads until the user says so
+
+The voice is a 65 MB download and a few hundred MB of memory, so yomiage never fetches or loads it by itself:
+
+- **Opening the page** downloads nothing big. Only a small `manifest.json` is read, when you ask for the size
+  (`voice.info()`, or the React hooks), so you can show "Download (65 MB)".
+- **Opting in:** only `load()` downloads (the first time) and loads into memory. Call it from something the user chose,
+  like a button. Unused memory is freed by itself (after a minute, or when the page is in the background) and comes
+  back from the device when needed, without downloading.
+- **Opting out:** `clearCache()` ("Delete from device") deletes the files, frees the memory and turns the feature
+  off everywhere on the page. Nothing downloads again until the next `load()`.
+
+**Your app remembers the choice.** On every visit, even when the files are already on the device, yomiage starts as
+`"not-loaded"` and waits for `load()`. To bring the feature back for a user who opted in before, save their choice
+and call `load()` at startup. That reads from the device; nothing is downloaded:
+
+```js
+const voice = createVoice();
+const { cached } = await voice.info();
+if (localStorage.getItem("yomiage") === "on" && cached) await voice.load();   // they said yes before
+
+downloadButton.onclick = async () => { localStorage.setItem("yomiage", "on"); await voice.load(); };
+deleteButton.onclick = async () => { localStorage.removeItem("yomiage"); await voice.clearCache(); };
+```
+
+With React, the same with `useYomiageEngine()`: `e.cached`, `e.load()` and `e.clearCache()`.
+
 ## Voice settings
 
 `preset`, `speed`, `pitch`, `formant`, `breathReduction`, `expressiveness` and `rhythmVariation`: what each does,
