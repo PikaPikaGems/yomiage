@@ -126,7 +126,6 @@ npm install                     # kakera is linked from ../kakera
 npm test                        # Node tests
 npm run build                   # dist/
 npm run files                   # files/ (downloads the model from Hugging Face once, into .cache/)
-                                #   or: node scripts/make-files.mjs --model-dir ../jp-tts-playground/models/tsukuyomi
 node bin/yomiage.mjs copy-files test/files --from files
 python3 -m http.server 8093     # open http://localhost:8093/test/voice.html, Load voice, Run checks
 npm run build:test-react        # test/react-app.js for http://localhost:8093/test/react.html
