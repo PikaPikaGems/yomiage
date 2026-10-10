@@ -38,4 +38,4 @@
 - [ ] CI: Node tests and the browser test page.
 - [x] Page hidden after `dispose()` and `load()` (2026-10-10, fixed in kakera): speech kept going in the background
       (3 more sentences in 6 s in Chrome) and the engine reloaded there. Now it stops at once; test/voice.html checks
-      it. Needs a release (0.3.2) for apps to get it.
+      it. Released in 0.3.2.
