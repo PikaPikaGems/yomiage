@@ -34,5 +34,5 @@
       Tool: `npm run test:webkit` (test/webkit.mjs) runs the test page's checks in WebKit, the load peak limit and a
       5-minute speaking check. Needs `npx playwright-core install webkit` once, and test/files made with
       `node bin/yomiage.mjs copy-files test/files --from files`.
-- [ ] Test on a real iPhone (sound unlock, loading bar, memory).
+- [ ] **Parked (2026-10-10, owner).** Test on a real iPhone (sound unlock, loading bar, memory).
 - [ ] CI: Node tests and the browser test page.
