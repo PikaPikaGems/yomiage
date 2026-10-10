@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { PRESETS, resolveSettings } from "../src/presets.js";
+import { PRESETS, resolveSettings } from "../.cache/ts/presets.js";
 
 test("defaults: soft preset, speed 0.8", () => {
   assert.deepEqual(resolveSettings(), {

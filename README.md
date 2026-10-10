@@ -41,15 +41,15 @@ dependencies: kakera, ONNX Runtime and piper-plus are bundled in at build time.
 ## Layout
 
 ```
-src/index.js        createVoice, PRESETS, CREDIT, toWav, VoiceError (page side)
-src/worker.js       the engine (runs in the worker)
-src/playback.js     AudioContext, unlocking on taps, gapless scheduling
-src/sentences.js    splitting text into short pieces, keeping their positions (onSentence)
-src/presets.js      presets and setting ranges
-src/psola.js        pitch / formant shifting (PSOLA)
-src/dehiss.js       breath reduction filter (plain JavaScript, matches the Web Audio version)
-src/piper-patch.js  workaround for a piper-plus 0.7.0 speaker-embedding bug
-src/wav.js          toWav
+src/index.ts        createVoice, PRESETS, CREDIT, toWav, VoiceError (page side)
+src/worker.ts       the engine (runs in the worker)
+src/playback.ts     AudioContext, unlocking on taps, gapless scheduling
+src/sentences.ts    splitting text into short pieces, keeping their positions (onSentence)
+src/presets.ts      presets and setting ranges
+src/psola.ts        pitch / formant shifting (PSOLA)
+src/dehiss.ts       breath reduction filter (plain JavaScript, matches the Web Audio version)
+src/piper-patch.ts  workaround for a piper-plus 0.7.0 speaker-embedding bug
+src/wav.ts          toWav
 bin/yomiage.mjs     yomiage copy-files
 scripts/build.mjs   builds dist/yomiage.js and dist/yomiage-worker.js (esbuild)
 scripts/make-files.mjs  makes the voice files (files/) from the model and node_modules
@@ -58,7 +58,13 @@ test/               Node tests; voice.html: manual controls + automatic checks i
 
 ## Development
 
+Source is strict TypeScript. `npm run build` checks the source, bundles JavaScript, and generates declarations in
+`dist/types/`. Internal modules for Node tests go into `.cache/ts/`. `npm test` builds first. Build scripts stay
+JavaScript. The `@webgpu/types` development dependency supplies types referenced by piper-plus; it adds no runtime code.
+
+
 ```bash
+npm ci --prefix ../kakera        # build the shared TypeScript dependency first
 npm install                     # kakera is linked from ../kakera
 npm test                        # Node tests
 npm run build                   # dist/

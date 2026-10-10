@@ -42,7 +42,7 @@ if (!modelDir) {
 
 const nm = (p) => path.join(root, "node_modules", p);
 const version = (p) => JSON.parse(fs.readFileSync(nm(`${p}/package.json`))).version;
-// Order matters: the worker turns each file into what it becomes as soon as it arrives (see src/worker.js).
+// Order matters: the worker turns each file into what it becomes as soon as it arrives (see src/worker.ts).
 const inputs = [
   ["ort.wasm", nm("onnxruntime-web/dist/ort-wasm-simd-threaded.wasm")],
   ["config.json", path.join(modelDir, "config.json")],

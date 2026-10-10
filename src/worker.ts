@@ -12,6 +12,10 @@
 //   phonemizer-data.bin  that dictionary (59 MB)  -> streamed straight into the phonemizer's memory as it is
 //                    created, before its start code runs, so the browser holds it once, not twice (kakera/wasm)
 import * as ort from "onnxruntime-web/wasm";
+import type { EngineContext } from "kakera/worker";
+import type { WorkerRequest } from "kakera";
+import type { DataSegment } from "kakera/wasm";
+import type { ResolvedSettings } from "./presets.js";
 import { PiperPlus } from "piper-plus";
 import { serveEngine, withTransfer } from "kakera/worker";
 import { collect } from "kakera/files";
@@ -27,7 +31,9 @@ const VERSION = typeof __YOMIAGE_VERSION__ === "string" ? __YOMIAGE_VERSION__ : 
 ort.env.wasm.numThreads = 1; // threads need cross-origin isolation, which most sites don't have
 ort.env.wasm.proxy = false;
 
-let piper = null;
+type PhonemizerGlue = { default(options: { module_or_path: WebAssembly.Module }): Promise<unknown> };
+type PiperInternals = PiperPlus & { _phonemizer?: { _phonemizers?: Map<string, unknown> } };
+let piper: PiperInternals | null = null;
 
 // Warnings piper-plus prints that don't apply here, so apps' consoles stay clean: the speaker embedding is handled
 // by piper-patch.js (it warns on every sentence), and Chinese isn't used.
@@ -35,14 +41,18 @@ const QUIET = ["[piper-plus] Model expects 'speaker_embedding'", "[piper-plus] C
 const warn = console.warn.bind(console);
 console.warn = (first, ...rest) => { if (!QUIET.some((q) => String(first).startsWith(q))) warn(first, ...rest); };
 
-async function load(_msg, ctx) {
-  let config = null, session = null, glue = null, phonemizerCode = null, phonemizerStarted = false;
+async function load(_msg: WorkerRequest, ctx: EngineContext) {
+  let config: unknown = null;
+  let session: ort.InferenceSession | null = null;
+  let glue: PhonemizerGlue | null = null;
+  let phonemizerCode: Uint8Array<ArrayBuffer> | null = null;
+  let phonemizerStarted = false;
   await ctx.loadFiles({
     onFile: async (file, chunks, manifest) => {
       if (file.name === "phonemizer-data.bin") {
         if (!glue || !phonemizerCode) throw codedError("engine-failed", "phonemizer-data.bin came before phonemizer.js / phonemizer.wasm in the manifest");
         ctx.step("start-phonemizer", { file: file.name });
-        await initWithData(glue.default, phonemizerCode, manifest.meta.phonemizerSegments, chunks);
+        await initWithData(glue.default, phonemizerCode, manifest.meta?.phonemizerSegments as DataSegment[], chunks);
         phonemizerCode = null;
         phonemizerStarted = true;
         return;
@@ -63,12 +73,12 @@ async function load(_msg, ctx) {
           break;
         case "phonemizer.js": {
           ctx.step("import-phonemizer", { file: file.name });
-          const url = URL.createObjectURL(new Blob([bytes], { type: "text/javascript" }));
+          const url = URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "text/javascript" }));
           try { glue = await import(/* @vite-ignore */ url); } finally { URL.revokeObjectURL(url); }
           break;
         }
         case "phonemizer.wasm":
-          phonemizerCode = bytes;
+          phonemizerCode = bytes as Uint8Array<ArrayBuffer>;
           break;
         default:
           ctx.log(`ignoring unknown file ${file.name}`);
@@ -91,11 +101,13 @@ async function load(_msg, ctx) {
   ctx.step("start-piper");
   patchSpeakerEmbeddingDim({ _session: session }, ort, ctx.log);
   try {
-    piper = await PiperPlus.initialize({
+    // wasmLoader is supported by piper-plus 0.7.0 but missing from its declarations.
+    const options = {
       model: modelUrl,
       ort: { ...ort, InferenceSession: { create: async () => session } },
       wasmLoader: async () => glue,
-    });
+    };
+    piper = await PiperPlus.initialize(options);
   } finally {
     self.fetch = realFetch;
   }
@@ -111,9 +123,10 @@ async function load(_msg, ctx) {
  * Formants are moved by resampling, which also slows the speech down by the same ratio, so the model is asked to
  * speak faster by that ratio first; PSOLA then sets the final pitch.
  */
-async function synth({ text, language, speed, pitch, formant, breathReduction, expressiveness, rhythmVariation }) {
+type SynthRequest = Omit<ResolvedSettings, "preset"> & { text: string; language: "ja" | "en" };
+async function synth({ text, language, speed, pitch, formant, breathReduction, expressiveness, rhythmVariation }: SynthRequest) {
   const ratio = 2 ** (formant / 12);
-  const audio = await piper.synthesize(text, {
+  const audio = await piper!.synthesize(text, {
     language,
     lengthScale: ratio / speed,
     noiseScale: expressiveness,
@@ -123,13 +136,13 @@ async function synth({ text, language, speed, pitch, formant, breathReduction, e
   const shifted = shiftVoicePsola(audio.samples, sampleRate, pitch, formant, VOICE_SHIFT);
   let samples = reduceBreath(shifted, sampleRate, breathReduction);
   if (samples.buffer.byteLength !== samples.byteLength) samples = samples.slice(); // transfer exactly these bytes
-  return withTransfer({ samples, sampleRate }, [samples.buffer]);
+  return withTransfer({ samples, sampleRate }, [samples.buffer as ArrayBuffer]);
 }
 
 serveEngine({
   load,
   calls: {
     version: async () => VERSION,
-    synth,
+    synth: (message) => synth(message as unknown as SynthRequest),
   },
 });

@@ -11,7 +11,7 @@ const QUOTES = "\"”’'";
 const JAPANESE = /[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]/;
 
 /** True for a piece with letters but no Japanese at all (e.g. "Let's do our best!"). */
-export const isOtherLanguage = (text) => !JAPANESE.test(text) && /\p{L}/u.test(text);
+export const isOtherLanguage = (text: string) => !JAPANESE.test(text) && /\p{L}/u.test(text);
 
 /**
  * Sentences: breaks after 。！？!?… (and "." followed by a space or the end, so "3.14" stays whole) plus any closing
@@ -20,10 +20,10 @@ export const isOtherLanguage = (text) => !JAPANESE.test(text) && /\p{L}/u.test(t
  * @param {string} text
  * @returns {{ text: string, start: number, end: number }[]}  start/end: string indices, so text.slice(start, end)
  */
-export function splitSentences(text) {
-  const out = [];
+export function splitSentences(text: string) {
+  const out: Array<{start: number; end: number; text?: string}> = [];
   let from = 0, depth = 0;
-  const flush = (to) => {
+  const flush = (to: number) => {
     const raw = text.slice(from, to);
     const lead = raw.length - raw.trimStart().length;
     const t = raw.trim();
@@ -52,15 +52,15 @@ export function splitSentences(text) {
  * @param {string} text
  * @returns {{ text: string, start: number, end: number }[]}
  */
-export function splitForSpeech(text, maxChars = MAX_CHARS) {
-  const out = [];
+export function splitForSpeech(text: string, maxChars = MAX_CHARS) {
+  const out: Array<{start: number; end: number; text?: string}> = [];
   for (const s of splitSentences(text)) {
-    if (s.text.length <= maxChars) { out.push(s); continue; }
-    let piece = null;
-    for (const m of s.text.matchAll(/[^、，,]+[、，,]?/g)) {
+    if (s.text!.length <= maxChars) { out.push(s); continue; }
+    let piece: {start: number; end: number} | null = null;
+    for (const m of s.text!.matchAll(/[^、，,]+[、，,]?/g)) {
       const start = s.start + m.index, end = start + m[0].length;
       if (piece && end - piece.start > maxChars) { out.push(piece); piece = null; }
-      piece = piece ? { ...piece, end } : { start, end };
+      piece = { start: piece ? piece.start : start, end };
     }
     if (piece) out.push(piece);
   }

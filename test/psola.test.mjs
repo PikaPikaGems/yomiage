@@ -1,7 +1,7 @@
 // PSOLA on a synthetic voice: pitch and length land where asked, cycles are marked steadily.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { detectPitch, pitchMarks, psola, resample, shiftVoicePsola, smoothVoicing, VOICE_SHIFT } from "../src/psola.js";
+import { detectPitch, pitchMarks, psola, resample, shiftVoicePsola, smoothVoicing, VOICE_SHIFT } from "../.cache/ts/psola.js";
 
 const SR = 22050;
 

@@ -247,7 +247,7 @@ it further are in PENDING.md.
 
 ## 10. TypeScript
 
-Types are included (`types/index.d.ts`): `Voice`, `VoiceOptions`, `SpeakOptions`, `LoadProgress`, `VoiceError` and
+Types are generated from the TypeScript source and included (`dist/types/index.d.ts`): `Voice`, `VoiceOptions`, `SpeakOptions`, `LoadProgress`, `VoiceError` and
 the rest. Nothing to install.
 
 ## 11. React *(planned, not built yet)*

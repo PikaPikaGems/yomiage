@@ -6,7 +6,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./types/index.d.ts",
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/yomiage.js",
       "default": "./dist/yomiage.js"
     }
@@ -17,7 +17,6 @@
   "files": [
     "dist/",
     "bin/",
-    "types/",
     "API.md",
     "NOTICE.md"
   ],
@@ -26,11 +25,13 @@
     "files": "node scripts/make-files.mjs",
     "test": "node --test test/*.test.mjs",
     "prepack": "npm run build",
-    "test:types": "tsc -p test/types",
+    "test:types": "tsc --noEmit -p tsconfig.json && tsc -p test/types",
     "publish:demo": "node scripts/publish-demo.mjs",
-    "test:webkit": "node test/webkit.mjs"
+    "test:webkit": "node test/webkit.mjs",
+    "pretest": "npm run build"
   },
   "devDependencies": {
+    "@webgpu/types": "^0.1.74",
     "esbuild": "^0.25.0",
     "kakera": "file:../kakera",
     "onnxruntime-web": "1.30.0",
@@ -46,5 +47,5 @@
     "tsukuyomi",
     "browser"
   ],
-  "types": "./types/index.d.ts"
+  "types": "./dist/types/index.d.ts"
 }
