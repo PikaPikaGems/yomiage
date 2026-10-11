@@ -28,7 +28,7 @@
       refuse it ("no available backend found. ERR: [wasm] RangeError: Out of memory", 11 ms into
       start-runtime-and-voice-model). src/ort-memory.ts lowers that maximum to 1 GB (512 MB if refused). Checked in
       Chromium with a shim that refuses bigger shared memories: same error before, loads after; test page all 15
-      passed at 512 MB. Not yet released or checked on a real iPhone.
+      passed at 512 MB. Released in 0.3.3; not yet checked on a real iPhone.
 - [ ] More memory, if needed: a smaller (quantized) voice model, which changes the sound.
 - [ ] **Parked (2026-10-09): memory still grows while speaking in some runs on Safari's engine.** About 1 run in 3,
       speaking a long text for 3 minutes in WebKit grows ~570 → ~740 MB; it stays while idle and is freed only when
