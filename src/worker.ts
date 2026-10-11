@@ -11,6 +11,7 @@
 //   phonemizer.wasm  Japanese phonemizer, without its built-in dictionary (1.4 MB) -> kept until started
 //   phonemizer-data.bin  that dictionary (59 MB)  -> streamed straight into the phonemizer's memory as it is
 //                    created, before its start code runs, so the browser holds it once, not twice (kakera/wasm)
+import "./ort-memory.js"; // first: ONNX Runtime's memory must fit on iPhones
 import * as ort from "onnxruntime-web/wasm";
 import type { EngineContext } from "kakera/worker";
 import type { WorkerRequest } from "kakera";

@@ -23,6 +23,12 @@
 - [x] Release v0.2.0 (pre-release, 2026-10-09): the Safari memory fixes.
 - [x] Tried ONNX Runtime `graphOptimizationLevel: "disabled"` (2026-10-09): same speed and 122 instead of 211 MB of
       wasm memory in Node, but ~60 MB *more* for the whole tab in WebKit (673–686 vs 618 MB speaking). Not used.
+- [x] **iPhone: "out-of-memory" at once when loading** (2026-10-11, from a user's debug report, iOS 26 Safari):
+      ONNX Runtime's wasm asks for a *shared* memory with a 4 GB maximum, which Safari reserves up front; iPhones
+      refuse it ("no available backend found. ERR: [wasm] RangeError: Out of memory", 11 ms into
+      start-runtime-and-voice-model). src/ort-memory.ts lowers that maximum to 1 GB (512 MB if refused). Checked in
+      Chromium with a shim that refuses bigger shared memories: same error before, loads after; test page all 15
+      passed at 512 MB. Not yet released or checked on a real iPhone.
 - [ ] More memory, if needed: a smaller (quantized) voice model, which changes the sound.
 - [ ] **Parked (2026-10-09): memory still grows while speaking in some runs on Safari's engine.** About 1 run in 3,
       speaking a long text for 3 minutes in WebKit grows ~570 → ~740 MB; it stays while idle and is freed only when
