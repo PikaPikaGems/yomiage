@@ -39,6 +39,11 @@ export interface VoiceOptions extends VoiceSettings {
   persistStorage?: boolean;
   /** Default for this voice's calls. Default "read". */
   otherLanguages?: OtherLanguages;
+  /**
+   * iPhone: "ignore" plays even when the ring/silent switch is on silent (sets `navigator.audioSession.type =
+   * "playback"` once, unless the app already set it). "respect" leaves it alone. Default "ignore".
+   */
+  silentSwitch?: "ignore" | "respect";
 }
 
 /** A piece of the text, as passed to onSentence. `text.slice(start, end)` of the original text. */
