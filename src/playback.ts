@@ -32,7 +32,10 @@ function retire() {
 export function audioContext() {
   const busy = [...playbacks].some((p) => p.sources.size > 0);
   if (ctx && (ctx.state === "closed" || (stale && !busy))) retire();
-  ctx ??= new (globalThis.AudioContext ?? (globalThis as typeof globalThis & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+  if (!ctx) {
+    ctx = new (globalThis.AudioContext ?? (globalThis as typeof globalThis & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    stale = false; // a fresh context: a mark set before it existed (hidden before the first speak()) no longer applies
+  }
   return ctx;
 }
 
