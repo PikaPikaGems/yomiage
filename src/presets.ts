@@ -15,7 +15,7 @@ export const PRESETS: Readonly<Record<PresetName, Readonly<{pitch: number; forma
 
 /** [min, max] of each setting. Values outside are clamped. */
 export const RANGES: Readonly<Record<NumericSetting, readonly [number, number]>> = Object.freeze({
-  speed: [0.5, 1.5],
+  speed: [0.25, 1.5],
   pitch: [-14, 6],
   formant: [-8, 4],
   breathReduction: [0, 1],

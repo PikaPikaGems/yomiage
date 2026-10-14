@@ -151,7 +151,7 @@ outside the range are clamped, never an error, so a slider can't break playback.
 | Setting | Range | Default | What it does |
 |---|---|---|---|
 | `preset` | `original` `soft` `low` `deep` `deeper` | `soft` | A starting point for `pitch`, `formant` and `breathReduction` (table below). Settings you also pass override it |
-| `speed` | 0.5 – 1.5 | 0.8 | How fast she talks. 1 is the model's natural pace, 0.5 half as fast. Changes the tempo only, not the pitch |
+| `speed` | 0.25 – 1.5 | 0.8 | How fast she talks. 1 is the model's natural pace, 0.5 half as fast, 0.25 a quarter as fast. Changes the tempo only, not the pitch |
 | `pitch` | −14 – +6 | from preset | How high or low the voice is, in semitones (12 = one octave). −2 is slightly lower, −12 an octave down. On its own, a big change sounds like the same small speaker sped up or slowed down; combine it with `formant` for a different-sounding voice |
 | `formant` | −8 – +4 | from preset | The "size" of the voice, in semitones: the resonances of the throat and mouth, independent of pitch. Negative sounds like a bigger, deeper body (more mature or masculine); positive sounds smaller (younger). Large values start to sound artificial |
 | `breathReduction` | 0 – 1 | from preset | Softens the hissy, airy high frequencies. Shifted voices pick up some breath noise, so the presets that shift use 0.6. Higher is cleaner but makes s / sh sounds duller |

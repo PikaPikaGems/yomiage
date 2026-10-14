@@ -7,7 +7,7 @@ export type PresetName = "original" | "soft" | "low" | "deep" | "deeper";
 export interface VoiceSettings {
   /** Starting values for pitch, formant and breathReduction. Default "soft". */
   preset?: PresetName;
-  /** 0.5 – 1.5. Tempo only, not pitch. Default 0.8. */
+  /** 0.25 – 1.5. Tempo only, not pitch. Default 0.8. */
   speed?: number;
   /** −14 – +6 semitones. Default from the preset. */
   pitch?: number;
