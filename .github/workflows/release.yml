@@ -1,11 +1,20 @@
-# Publishes a GitHub release when a version tag is pushed (git tag -a v0.3.4 -m "<notes>" && git push origin v0.3.4).
-# Builds and tests like test.yml, then attaches the npm tarball and the voice files that `yomiage copy-files` downloads.
-# The tag's message becomes the release notes, followed by the install lines every release carries.
+# Publishes a GitHub release for the version in package.json, either
+#   - when a version tag is pushed (git tag -a v0.3.4 -m "<notes>" && git push origin v0.3.4): the tag's message
+#     becomes the release notes, or
+#   - from "Run workflow" on main (Actions tab, or the API): it creates the tag v<version> on that commit, and the
+#     `notes` input becomes the release notes. For tools that can start a workflow but not push tags.
+# Builds and tests like test.yml, then attaches the npm tarball and the voice files that `yomiage copy-files` downloads,
+# followed in the notes by the install lines every release carries.
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: Release notes (Markdown)
+        required: true
 
 permissions:
   contents: write
@@ -31,14 +40,24 @@ jobs:
         with:
           path: yomiage/.cache
           key: voice-model-${{ hashFiles('yomiage/scripts/make-files.mjs') }}
-      - name: Tag matches package.json
+      - name: Version
         run: |
           version=$(node -p 'require("./package.json").version')
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::run it on main, not $GITHUB_REF_NAME"
+              exit 1
+            fi
+            if [ -n "$(git ls-remote --tags origin "refs/tags/v$version")" ]; then
+              echo "::error::v$version already exists: bump the version in package.json first"
+              exit 1
+            fi
+          elif [ "v$version" != "$GITHUB_REF_NAME" ]; then
             echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
             exit 1
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=v$version" >> "$GITHUB_ENV"
       - run: npm ci
         working-directory: kakera
       - run: npm ci
@@ -48,10 +67,16 @@ jobs:
       - run: npm run test:types
       - run: npm pack
       - name: Release notes
+        env:
+          INPUT_NOTES: ${{ inputs.notes }}
         run: |
-          # actions/checkout leaves an annotated tag as a plain ref: fetch it again to read its message.
-          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
-          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/^-----BEGIN PGP SIGNATURE-----/,$d' > notes.md
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            printf '%s\n' "$INPUT_NOTES" > notes.md
+          else
+            # actions/checkout leaves an annotated tag as a plain ref: fetch it again to read its message.
+            git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+            git tag -l --format='%(contents)' "$TAG" | sed '/^-----BEGIN PGP SIGNATURE-----/,$d' > notes.md
+          fi
           base="https://github.com/PikaPikaGems/yomiage"
           cat >> notes.md <<NOTES
 
@@ -64,5 +89,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "yomiage-$VERSION.tgz" files/* \
+          # --target: from "Run workflow" the tag does not exist yet; gh creates it on this commit.
+          gh release create "$TAG" "yomiage-$VERSION.tgz" files/* --target "$GITHUB_SHA" \
             --prerelease --title "yomiage $VERSION (experimental)" --notes-file notes.md
