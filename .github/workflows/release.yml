@@ -1,0 +1,68 @@
+# Publishes a GitHub release when a version tag is pushed (git tag -a v0.3.4 -m "<notes>" && git push origin v0.3.4).
+# Builds and tests like test.yml, then attaches the npm tarball and the voice files that `yomiage copy-files` downloads.
+# The tag's message becomes the release notes, followed by the install lines every release carries.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yomiage
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: yomiage
+      - uses: actions/checkout@v4
+        with:
+          repository: PikaPikaGems/kakera
+          path: kakera
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache@v4
+        with:
+          path: yomiage/.cache
+          key: voice-model-${{ hashFiles('yomiage/scripts/make-files.mjs') }}
+      - name: Tag matches package.json
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - run: npm ci
+        working-directory: kakera
+      - run: npm ci
+      - run: npm run build
+      - run: npm run files
+      - run: npm test
+      - run: npm run test:types
+      - run: npm pack
+      - name: Release notes
+        run: |
+          # actions/checkout leaves an annotated tag as a plain ref: fetch it again to read its message.
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/^-----BEGIN PGP SIGNATURE-----/,$d' > notes.md
+          base="https://github.com/PikaPikaGems/yomiage"
+          cat >> notes.md <<NOTES
+
+          Install: \`npm install $base/releases/download/v$VERSION/yomiage-$VERSION.tgz\`
+          Then \`yomiage copy-files public/yomiage\` (in predev/prebuild) gets the voice files attached here (65 MB). See the [README]($base/blob/v$VERSION/README.md#nothing-downloads-until-the-user-says-so) and [API.md]($base/blob/v$VERSION/API.md). Demo: https://pikapikagems.github.io/yomiage/
+          Every app must show the Tsukuyomi-chan credit (\`CREDIT\`, see NOTICE.md).
+          NOTES
+          cat notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "yomiage-$VERSION.tgz" files/* \
+            --prerelease --title "yomiage $VERSION (experimental)" --notes-file notes.md
