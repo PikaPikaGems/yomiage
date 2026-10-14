@@ -133,6 +133,12 @@ voice.stop();                                                     // stop whatev
 - **iPhone:** Safari only plays sound that starts from a tap. yomiage unlocks audio on the first tap or key press
   anywhere on the page, so call `speak()` from a button and it just works. If audio is still blocked,
   `speak()` rejects with `audio-blocked`.
+- **iPhone, back from another app:** the audio context is replaced after the page was in the background, and a
+  speech whose audio clock stands still for 1.5 s (sound scheduled, nothing heard) rejects with `audio-blocked`
+  instead of resolving `"done"`: fall back to another voice there. The ring/silent switch mutes the voice (Web Audio
+  follows it). Pass `silentSwitch: "ignore"` to createVoice to play anyway: it sets `navigator.audioSession.type`
+  to `"playback"` once, unless the app set it (other apps' music then pauses while it speaks). Set it once, not
+  around every speech: changing it interrupts the audio.
 - Cancel with an `AbortSignal` (`{ signal }`): `speak()` then rejects with an `AbortError`, like other calls.
 - Call `load()` first; `speak()` before that rejects with `not-loaded`. After the memory was freed (idle, page
   hidden, `unload()`), `speak()` reloads it from the device by itself.
@@ -338,5 +344,7 @@ function Row({ name, e }) {
 `voice.debugReport()` returns plain text that can be pasted into a bug report. It includes package and kakera
 versions, browser and device details, the files address and manifest version, status, the last load error and its
 causes, which file parts are on the device, storage estimates, the crash-guard record, and the last load's log and
-timings. It never includes spoken text. The shared report is provided by kakera. `useYomiageEngine()` exposes
+timings, and an audio section: AudioContext state and sample rate, how often it was replaced, how long ago the page
+was hidden and shown, the last `speak()` error, the time from `speak()` to the first sentence for the last five
+calls, and `audioSession.type`. It never includes spoken text. The shared report is provided by kakera. `useYomiageEngine()` exposes
 the same report as `e.debugReport()`.

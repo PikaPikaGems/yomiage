@@ -8,7 +8,7 @@ export type * from "./types.js";
 import { createPool, KakeraError } from "kakera";
 import { DEFAULTS, PRESETS, RANGES, resolveSettings } from "./presets.js";
 import { splitForSpeech, isOtherLanguage } from "./sentences.js";
-import { Playback, audioRunning, unlockAudio, unlockOnGestures } from "./playback.js";
+import { Playback, audioReport, audioRunning, noteSpeakError, noteSpeakStart, playInSilentMode, unlockAudio, unlockOnGestures } from "./playback.js";
 import { toWav } from "./wav.js";
 
 export { DEFAULTS, PRESETS, RANGES, toWav };
@@ -41,6 +41,10 @@ interface Speech { stop(): void; done?: Promise<"done" | "stopped">; }
 const speeches = new Set<Speech>();
 const stopAll = () => { for (const s of [...speeches]) s.stop(); };
 
+/** Throws when the audio clock stood still (see Playback.stalled): sound was scheduled but nothing was heard. */
+const noSilence = (stalled: unknown) => {
+  if (stalled === true) throw new VoiceError("audio-blocked", "the browser accepted the sound but its audio clock is not moving, so nothing was heard (iPhone: after switching apps)");
+};
 const abortError = () => new DOMException("The operation was aborted.", "AbortError");
 const definedOnly = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 const pick = (o: VoiceSettings, keys: Set<string>): VoiceSettings => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => keys.has(k)));
@@ -57,11 +61,12 @@ function checkOtherLanguages(v: OtherLanguages) {
 export function createVoice(options: VoiceOptions = {}): Voice {
   const {
     filesUrl = "/yomiage/", idleTimeout, stopWhenHidden = true, crashGuard, timeouts = {}, persistStorage,
-    otherLanguages = "read",
+    otherLanguages = "read", silentSwitch = "respect",
   } = options;
   const defaults = pick(options, SETTINGS);
   resolveSettings(defaults); // an unknown preset fails here, not at the first speak()
   checkOtherLanguages(otherLanguages);
+  if (!["ignore", "respect"].includes(silentSwitch)) throw new TypeError(`silentSwitch must be "ignore" or "respect", not ${JSON.stringify(silentSwitch)}`);
   const speakStall = timeouts.speakStall ?? 20_000;
   const base = new URL(filesUrl.endsWith("/") ? filesUrl : `${filesUrl}/`, globalThis.location?.href).href;
 
@@ -76,6 +81,7 @@ export function createVoice(options: VoiceOptions = {}): Voice {
   }));
   if (stopWhenHidden) handle.onHidden(stopAll);
   unlockOnGestures();
+  if (silentSwitch === "ignore") playInSilentMode();
 
   /** Each piece of `text` as audio, in order; stops early when `signal` aborts. */
   async function* pieces(text: string, settings: VoiceSettings, otherLangs: OtherLanguages, signal?: AbortSignal) {
@@ -103,7 +109,7 @@ export function createVoice(options: VoiceOptions = {}): Voice {
     info: () => handle.info(),
 
     /** Plain-text report for bug reports. Never includes spoken text. */
-    debugReport: () => handle.debugReport({ packageName: "yomiage", packageVersion: VERSION }),
+    debugReport: async () => `${await handle.debugReport({ packageName: "yomiage", packageVersion: VERSION })}\n\n${audioReport()}\n`,
 
     /** Download (first time) and start the engine. Resolves { fromCache }. */
     async load() {
@@ -146,6 +152,8 @@ export function createVoice(options: VoiceOptions = {}): Voice {
         p.then(resolve, reject).finally(() => ctrl.signal.removeEventListener("abort", onAbort));
       });
 
+      const startedAt = performance.now();
+      let firstSound = true;
       speech.done = (async (): Promise<"done" | "stopped"> => {
         let playback = null;
         try {
@@ -156,17 +164,20 @@ export function createVoice(options: VoiceOptions = {}): Voice {
             check();
             if (!(await until(running))) throw new VoiceError("audio-blocked", "the browser did not allow sound: call speak() from a tap or click");
             const { onSentence } = o;
-            playback.add(audio.samples, audio.sampleRate, onSentence && (() => {
-              if (!ctrl.signal.aborted) try { onSentence({ ...piece }); } catch (e) { console.error(e); }
-            }));
-            while (playback.ahead() > LOOKAHEAD_S) await until(new Promise((r) => setTimeout(r, 250)));
+            playback.add(audio.samples, audio.sampleRate, () => {
+              if (ctrl.signal.aborted) return;
+              if (firstSound) { firstSound = false; noteSpeakStart(performance.now() - startedAt); }
+              if (onSentence) try { onSentence({ ...piece }); } catch (e) { console.error(e); }
+            });
+            while (playback.ahead() > LOOKAHEAD_S) await until(Promise.race([new Promise((r) => setTimeout(r, 250)), playback.stalled]).then(noSilence));
           }
-          await until(playback.finished());
+          await until(Promise.race([playback.finished().then(() => false), playback.stalled]).then(noSilence));
           return "done";
         } catch (e) {
           playback?.stop();
           if (ctrl.signal.reason === STOPPED) return "stopped";
           if (ctrl.signal.aborted) throw ctrl.signal.reason;
+          noteSpeakError(e instanceof VoiceError ? e.code : (e as Error)?.name ?? "error");
           throw e;
         }
       })().finally(() => {
