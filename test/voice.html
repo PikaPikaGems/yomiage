@@ -95,7 +95,7 @@ voice.info().then(({ cached, downloadMB }) => { $("size").textContent = cached ?
 for (const name of Object.keys(PRESETS)) $("preset").append(new Option(name, name));
 // [step, description]; the same explanations as API.md § Settings
 const SLIDERS = {
-  speed: [0.05, "How fast she talks. 1 is the model's natural pace, 0.5 half as fast, 1.5 half again as fast. Changes the tempo only, not the pitch."],
+  speed: [0.05, "How fast she talks. 1 is the model's natural pace, 0.5 half as fast, 0.25 a quarter as fast, 1.5 half again as fast. Changes the tempo only, not the pitch."],
   pitch: [0.5, "How high or low the voice is, in semitones (12 = one octave): −2 is slightly lower, −12 an octave down. On its own a big change sounds like the same small speaker sped up or slowed down; combine it with formant for a different-sounding voice."],
   formant: [0.5, "The \"size\" of the voice: the resonances of the throat and mouth, independent of pitch. Negative sounds like a bigger, deeper body (more mature); positive sounds smaller (younger). Large values start to sound artificial."],
   breathReduction: [0.05, "Softens the hissy, airy high frequencies. Shifted voices pick up some breath noise, so the presets that shift use 0.6. Higher is cleaner, but s and sh sounds get duller."],
