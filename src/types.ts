@@ -41,7 +41,8 @@ export interface VoiceOptions extends VoiceSettings {
   otherLanguages?: OtherLanguages;
   /**
    * iPhone: "ignore" plays even when the ring/silent switch is on silent (sets `navigator.audioSession.type =
-   * "playback"` once, unless the app already set it). "respect" leaves it alone. Default "ignore".
+   * "playback"` once, unless the app already set it; this also pauses music in other apps while speaking).
+   * "respect" leaves it alone, so the switch mutes the voice. Default "respect".
    */
   silentSwitch?: "ignore" | "respect";
 }

@@ -61,7 +61,7 @@ function checkOtherLanguages(v: OtherLanguages) {
 export function createVoice(options: VoiceOptions = {}): Voice {
   const {
     filesUrl = "/yomiage/", idleTimeout, stopWhenHidden = true, crashGuard, timeouts = {}, persistStorage,
-    otherLanguages = "read", silentSwitch = "ignore",
+    otherLanguages = "read", silentSwitch = "respect",
   } = options;
   const defaults = pick(options, SETTINGS);
   resolveSettings(defaults); // an unknown preset fails here, not at the first speak()
